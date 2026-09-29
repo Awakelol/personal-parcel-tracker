@@ -7,10 +7,15 @@ const CACHE_VERSION = 'v1';
 export const CACHE_TTL_SECONDS = 60 * 60;
 
 /**
- * Shorter TTL used when Gemini analysis failed, so a transient AI outage
- * doesn't pin a summary-less result for a full hour.
+ * Shorter TTL for partial results, so a transient Gemini outage or a freshly
+ * registered number that TrackingMore hasn't scraped yet isn't pinned for an hour.
  */
-export const DEGRADED_CACHE_TTL_SECONDS = 5 * 60;
+export const PARTIAL_CACHE_TTL_SECONDS = 5 * 60;
+
+export function cacheTtlFor(result: TrackResult): number {
+  const isComplete = result.analysis !== null && result.events.length > 0;
+  return isComplete ? CACHE_TTL_SECONDS : PARTIAL_CACHE_TTL_SECONDS;
+}
 
 export function cacheKey(request: TrackRequest): string {
   const courier = request.courierCode ?? 'auto';

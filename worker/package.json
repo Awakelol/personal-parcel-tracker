@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@google/genai": "^2.24.0",
     "hono": "^4.13.10"
   },
   "devDependencies": {

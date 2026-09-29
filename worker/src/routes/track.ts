@@ -3,13 +3,7 @@ import type { HonoRequest } from 'hono';
 import type { AiAnalysis, TrackResponse, TrackResult } from '../../../shared/api';
 import type { AppBindings, Env } from '../env';
 import { AppError, describeError } from '../errors';
-import {
-  CACHE_TTL_SECONDS,
-  DEGRADED_CACHE_TTL_SECONDS,
-  cacheKey,
-  readCachedResult,
-  writeCachedResult,
-} from '../lib/cache';
+import { cacheKey, cacheTtlFor, readCachedResult, writeCachedResult } from '../lib/cache';
 import { parseTrackRequest } from '../lib/validation';
 import { analyzeTracking } from '../services/gemini';
 import { fetchTracking } from '../services/trackingmore';
@@ -35,8 +29,9 @@ trackRoute.post('/', async (c) => {
     fetchedAt: new Date().toISOString(),
   };
 
-  const ttl = analysis ? CACHE_TTL_SECONDS : DEGRADED_CACHE_TTL_SECONDS;
-  c.executionCtx.waitUntil(writeCachedResult(c.env.TRACKING_CACHE, key, result, ttl));
+  c.executionCtx.waitUntil(
+    writeCachedResult(c.env.TRACKING_CACHE, key, result, cacheTtlFor(result)),
+  );
 
   const response: TrackResponse = { ...result, cached: false };
   return c.json(response);
