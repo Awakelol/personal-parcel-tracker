@@ -5,10 +5,14 @@ Personal multi-carrier parcel tracking dashboard.
 | Path      | What                                                        |
 | --------- | ----------------------------------------------------------- |
 | `worker/` | Cloudflare Worker API (Hono) — SPX/17TRACK + Gemini + KV    |
-| `web/`    | Vite + React + Tailwind dashboard *(Phase 3)*               |
+| `web/`    | Vite + React + Tailwind dashboard, served by the Worker     |
 | `shared/` | TypeScript API contract imported by both                    |
 
-## Worker setup
+One Worker serves everything: `/api/*` runs the API, every other path serves the
+dashboard built from `web/` (wrangler builds it automatically before `dev` and
+`deploy`, via `[build]` in `wrangler.toml`).
+
+## Local development
 
 Requires Node.js 20+.
 
@@ -16,10 +20,20 @@ Requires Node.js 20+.
 cd worker
 npm install
 cp .dev.vars.example .dev.vars          # fill in your API keys
-npm run dev                             # http://localhost:8787
+npm run dev                             # dashboard + API on http://localhost:8787
 ```
 
-Deploy (the `TRACKING_CACHE` KV namespace is provisioned automatically on first deploy):
+For hot-reloading UI work, keep the Worker running and start Vite alongside it:
+
+```sh
+cd web
+npm run dev                             # http://localhost:5173, proxies /api to :8787
+```
+
+## Deploy
+
+Pushes to `main` deploy automatically via Workers Builds (root directory `worker`).
+The `TRACKING_CACHE` KV namespace is provisioned on first deploy. To deploy by hand:
 
 ```sh
 npx wrangler secret put GEMINI_API_KEY

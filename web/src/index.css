@@ -1,0 +1,74 @@
+@import 'tailwindcss';
+
+/*
+ * Tokens. The page is the parcel box (kraft); results are printed on label
+ * paper, which stays light in both themes like a real label would.
+ */
+@theme {
+  --color-kraft: #c8a171;
+  --color-kraft-edge: #a9824f;
+  --color-paper: #fafaf7;
+  --color-paper-rule: #d9d5cb;
+  --color-ink: #1a1712;
+  --color-ink-muted: #5f584c;
+  --color-sticker: #f5c518;
+  --color-alert: #b42318;
+
+  /* Text/controls sitting directly on the page (flip in dark mode). */
+  --color-on-page: #1a1712;
+  --color-on-page-muted: #4a3b27;
+
+  --font-sans: 'Archivo', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Martian Mono', ui-monospace, 'SFMono-Regular', monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-kraft: #2b241b;
+    --color-kraft-edge: #4a3d2c;
+    --color-on-page: #efe6d6;
+    --color-on-page-muted: #c2b299;
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-kraft font-sans text-on-page antialiased;
+  }
+
+  /* Condensed Archivo for label-style display text. */
+  .font-condensed {
+    font-stretch: 68%;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-on-page);
+    outline-offset: 2px;
+  }
+
+  .on-paper :focus-visible {
+    outline-color: var(--color-ink);
+  }
+}
+
+/* The label "prints" out of the top edge, once, when a result arrives. */
+@keyframes print-out {
+  from {
+    clip-path: inset(0 0 100% 0);
+    transform: translateY(-8px);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    transform: translateY(0);
+  }
+}
+
+.animate-print {
+  animation: print-out 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-print {
+    animation: none;
+  }
+}

@@ -6,6 +6,17 @@ compatibility_flags = ["nodejs_compat"]
 [observability]
 enabled = true
 
+# The dashboard (web/) is built before every `wrangler dev`/`wrangler deploy`
+# (including Workers Builds) and served from this Worker. Only /api/* runs the
+# Worker code; every other path is a static file or falls back to index.html.
+[build]
+command = "npm --prefix ../web install --no-audit --no-fund && npm --prefix ../web run build"
+
+[assets]
+directory = "../web/dist"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
 # Caches the combined tracking + Gemini result per tracking number (1h TTL).
 # No `id` on purpose: `wrangler deploy` (including Workers Builds) provisions
 # the namespace automatically on first deploy, and `wrangler dev` uses a local one.
