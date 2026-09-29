@@ -24,7 +24,7 @@ export function LoadingState({ trackingNumber }: { trackingNumber: string }) {
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted">Printing label…</p>
         <p className="font-condensed mt-2 text-3xl font-black break-all">{trackingNumber}</p>
         <div className="mt-4 h-16 animate-pulse rounded-sm bg-ink/10 motion-reduce:animate-none" />
-        <p className="mt-3 text-sm text-ink-muted">Asking the courier for the latest scans. First lookups can take a few seconds.</p>
+        <p className="mt-3 text-sm text-ink-muted">Getting the latest scans and a summary. New lookups can take up to 20 seconds; repeat visits are instant.</p>
       </div>
     </div>
   );
