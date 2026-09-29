@@ -12,6 +12,20 @@ One Worker serves everything: `/api/*` runs the API, every other path serves the
 dashboard built from `web/` (wrangler builds it automatically before `dev` and
 `deploy`, via `[build]` in `wrangler.toml`).
 
+Dashboard features:
+
+- **Track** (`/?n=<number>&c=<courier>`): Gemini summary, printed-label card with
+  estimated arrival, route map of the Philippines, and scan history.
+- **Saved parcels** (`/saved`): parcels you saved with a name, their latest scan and
+  estimated arrival, refreshed when the page opens. Stored in the browser's
+  localStorage only (the site has no login, so nothing personal is kept server-side).
+- **Estimated arrival** prefers the courier's own estimate (17TRACK) and otherwise
+  uses Gemini's estimate from the scan history.
+- **Route map**: Gemini extracts the places in the scans (hub codes → cities) with
+  approximate coordinates; the Worker drops anything outside the Philippines. The
+  outline comes from Natural Earth (public domain) and is pre-generated into
+  `web/src/lib/phMap.ts` by `node web/scripts/build-ph-map.mjs`.
+
 ## Local development
 
 Requires Node.js 20+.

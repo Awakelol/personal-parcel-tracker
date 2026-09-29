@@ -1,4 +1,4 @@
-import type { ParcelStatus, TrackingEvent } from '../../../shared/api';
+import type { DateRange, ParcelStatus, TrackingEvent } from '../../../shared/api';
 import { courierCodeFor17TrackId, courierName } from '../lib/carriers';
 import { fetchJson, isRecord, upstreamError } from '../lib/http';
 import { AppError } from '../errors';
@@ -53,7 +53,10 @@ export interface StTrackInfo {
   } | null;
   latest_status?: { status?: string | null; sub_status?: string | null } | null;
   latest_event?: StEvent | null;
-  time_metrics?: Record<string, unknown> | null;
+  time_metrics?: {
+    estimated_delivery_date?: { source?: string | null; from?: string | null; to?: string | null } | null;
+    [key: string]: unknown;
+  } | null;
   milestone?: unknown[] | null;
   tracking?: { providers?: StProvider[] | null } | null;
 }
@@ -121,6 +124,7 @@ export function normalize17Track(raw: SeventeenTrackRaw): TrackingLookup {
       destinationCountry: info?.shipping_info?.recipient_address?.country ?? null,
       events: events.map(toTrackingEvent),
     },
+    carrierEstimate: carrierEstimate(info),
     // Drops shipping_info streets/postcodes and misc_info reference numbers.
     analysisInput: {
       source: '17TRACK',
@@ -243,6 +247,15 @@ const STATUS_MAP: Record<string, ParcelStatus> = {
 
 function mapStatus(status: string | null | undefined): ParcelStatus {
   return (status && STATUS_MAP[status]) || 'unknown';
+}
+
+/** The carrier's own delivery window, as calendar dates in the carrier's local time. */
+function carrierEstimate(info: StTrackInfo | null): DateRange | null {
+  const estimate = info?.time_metrics?.estimated_delivery_date;
+  const from = estimate?.from?.slice(0, 10);
+  const to = (estimate?.to ?? estimate?.from)?.slice(0, 10);
+  if (!from || !to || !/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return null;
+  return from <= to ? { earliest: from, latest: to } : { earliest: to, latest: from };
 }
 
 /** Merges all providers' events (e.g. origin + last-mile), deduplicated, oldest first. */

@@ -1,5 +1,6 @@
 import type { TrackResponse } from '@shared/api';
 import { ALERT_STATUSES, STATUS_LABELS, formatDateTime, formatRelative } from '../lib/format';
+import { ArrivalEstimate } from './ArrivalEstimate';
 import { Barcode } from './Barcode';
 
 interface WaybillLabelProps {
@@ -37,9 +38,13 @@ export function WaybillLabel({ result }: WaybillLabelProps) {
         <Barcode value={result.trackingNumber} className="mt-4 h-16 w-full text-ink" />
       </div>
 
-      <dl className="grid grid-cols-2 border-t border-dashed border-paper-rule text-sm">
+      <div className="border-t-2 border-ink px-4 py-3">
+        <ArrivalEstimate status={result.status} estimate={result.estimatedDelivery} latestEvent={latest} />
+      </div>
+
+      <dl className="grid grid-cols-2 border-t border-paper-rule text-sm">
         <div className="border-r border-dashed border-paper-rule px-4 py-3">
-          <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted">Route</dt>
+          <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted">Countries</dt>
           <dd className="mt-1 font-mono text-[13px]">
             {result.originCountry || result.destinationCountry ? (
               `${result.originCountry ?? '?'} → ${result.destinationCountry ?? '?'}`

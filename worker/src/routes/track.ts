@@ -4,6 +4,7 @@ import type { AiAnalysis, TrackResponse, TrackResult } from '../../../shared/api
 import type { AppBindings, Env } from '../env';
 import { AppError, describeError } from '../errors';
 import { cacheKey, cacheTtlFor, readCachedResult, writeCachedResult } from '../lib/cache';
+import { philippineToday, resolveEstimatedDelivery } from '../lib/estimate';
 import { parseTrackRequest } from '../lib/validation';
 import { analyzeTracking } from '../services/gemini';
 import { fetchTracking } from '../services/tracking';
@@ -20,14 +21,16 @@ trackRoute.post('/', async (c) => {
     return c.json(response);
   }
 
-  const { snapshot, analysisInput } = await fetchTracking(c.env, request);
+  const { snapshot, carrierEstimate, analysisInput } = await fetchTracking(c.env, request);
   // Nothing to analyse until the carrier reports its first event.
   const analysis = snapshot.events.length > 0 ? await analyzeSafely(c.env, analysisInput) : null;
 
+  const now = new Date();
   const result: TrackResult = {
     ...snapshot,
     analysis,
-    fetchedAt: new Date().toISOString(),
+    estimatedDelivery: resolveEstimatedDelivery(snapshot.status, carrierEstimate, analysis, philippineToday(now)),
+    fetchedAt: now.toISOString(),
   };
 
   c.executionCtx.waitUntil(

@@ -1,4 +1,4 @@
-import type { ParcelStatus } from '@shared/api';
+import type { DateRange, ParcelStatus } from '@shared/api';
 
 export const STATUS_LABELS: Record<ParcelStatus, string> = {
   pending: 'Awaiting first scan',
@@ -51,6 +51,39 @@ export function formatDay(iso: string): string {
 export function formatTime(iso: string): string {
   const date = parse(iso);
   return date ? timeFormat.format(date) : iso;
+}
+
+const monthDayFormat = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+const shortRangeFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+
+/** "2026-10-01" as a local calendar date (avoids the UTC shift of `new Date(string)`). */
+function parseDateOnly(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : null;
+}
+
+/** "Wed, Oct 1" for a single day, "Oct 1 – 4" / "Sep 30 – Oct 4" for a window. */
+export function formatDateRange(range: DateRange): string {
+  const earliest = parseDateOnly(range.earliest);
+  const latest = parseDateOnly(range.latest);
+  if (!earliest || !latest) return `${range.earliest} – ${range.latest}`;
+  if (earliest.getTime() === latest.getTime()) return monthDayFormat.format(earliest);
+  return shortRangeFormat.formatRange(earliest, latest);
+}
+
+/** "today", "tomorrow", "in 2–5 days" relative to the reader's today. */
+export function formatArrivalHint(range: DateRange, now = new Date()): string {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const days = (value: string) => {
+    const date = parseDateOnly(value);
+    return date ? Math.round((date.getTime() - today) / 86_400_000) : NaN;
+  };
+  const from = Math.max(0, days(range.earliest));
+  const to = Math.max(0, days(range.latest));
+  if (Number.isNaN(from) || Number.isNaN(to)) return '';
+  if (from === to) return from === 0 ? 'today' : from === 1 ? 'tomorrow' : `in ${from} days`;
+  if (from === 0) return to === 1 ? 'today or tomorrow' : `within ${to} days`;
+  return `in ${from}–${to} days`;
 }
 
 /** "3 hours ago", "yesterday", … */

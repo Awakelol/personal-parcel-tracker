@@ -85,6 +85,8 @@ export function normalizeSpx(trackingNumber: string, raw: SpxResponse): Tracking
       destinationCountry: 'PH',
       events,
     },
+    // SPX's public endpoint has no delivery estimate; Gemini provides one.
+    carrierEstimate: null,
     // Only event text, time and hub name — never recipient fields.
     analysisInput: {
       source: 'SPX Express Philippines',

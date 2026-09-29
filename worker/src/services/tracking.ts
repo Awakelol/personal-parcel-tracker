@@ -1,4 +1,4 @@
-import type { TrackRequest, TrackingSnapshot } from '../../../shared/api';
+import type { DateRange, TrackRequest, TrackingSnapshot } from '../../../shared/api';
 import type { Env } from '../env';
 import { AppError } from '../errors';
 import { SPX_17TRACK_CARRIER_ID, resolveRoute } from '../lib/carriers';
@@ -8,6 +8,8 @@ import { fetchSpxRaw, normalizeSpx } from './spx';
 export interface TrackingLookup {
   /** Normalised timeline returned to the dashboard. */
   snapshot: TrackingSnapshot;
+  /** Delivery window reported by the carrier itself, if any. */
+  carrierEstimate: DateRange | null;
   /** PII-free subset of the upstream's raw JSON, forwarded to Gemini. */
   analysisInput: unknown;
 }

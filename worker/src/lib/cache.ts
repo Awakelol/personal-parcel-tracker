@@ -1,8 +1,9 @@
 import type { TrackRequest, TrackResult } from '../../../shared/api';
 import { describeError } from '../errors';
+import { resolveRoute } from './carriers';
 
 /** Bump when the TrackResult shape changes so stale entries are ignored. */
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 
 export const CACHE_TTL_SECONDS = 60 * 60;
 
@@ -17,9 +18,15 @@ export function cacheTtlFor(result: TrackResult): number {
   return isComplete ? CACHE_TTL_SECONDS : PARTIAL_CACHE_TTL_SECONDS;
 }
 
+/**
+ * Keyed by where the lookup actually goes, so equivalent requests (an SPX
+ * number with or without `spx-ph`, `jnt-ph` vs `100240`) share one entry and
+ * one Gemini analysis.
+ */
 export function cacheKey(request: TrackRequest): string {
-  const courier = request.courierCode ?? 'auto';
-  return `track:${CACHE_VERSION}:${courier}:${request.trackingNumber}`;
+  const route = resolveRoute(request);
+  const source = route.provider === 'spx' ? 'spx' : `17track-${route.carrierId ?? 'auto'}`;
+  return `track:${CACHE_VERSION}:${source}:${request.trackingNumber}`;
 }
 
 /** Returns the cached result, or `null` on a miss or KV failure. */
