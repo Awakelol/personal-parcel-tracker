@@ -8,6 +8,7 @@ import { parseTrackRequest } from '../lib/validation';
 
 const MAX_PARCELS = 100;
 const MAX_NAME_LENGTH = 60;
+const MAX_SCAN_KEY_LENGTH = 300;
 
 const storageKey = (userId: string) => `parcels:${userId}`;
 
@@ -23,6 +24,10 @@ function parseName(value: unknown): string {
   const name = typeof value === 'string' ? value.trim() : '';
   if (!name) throw new AppError(400, 'INVALID_REQUEST', 'Give the parcel a name.');
   return name.slice(0, MAX_NAME_LENGTH);
+}
+
+function parseScanKey(value: unknown): string | undefined {
+  return typeof value === 'string' && value ? value.slice(0, MAX_SCAN_KEY_LENGTH) : undefined;
 }
 
 export const parcelsRoute = new Hono<AppBindings>();
@@ -52,11 +57,13 @@ parcelsRoute.put('/:trackingNumber', async (c) => {
   const parcels = await loadParcels(c.env.USER_DATA, user.id);
   const existing = parcels.find((p) => p.trackingNumber === trackingNumber);
 
+  const seenLatest = parseScanKey(fields.seenLatest) ?? existing?.seenLatest;
   const parcel: SavedParcel = {
     trackingNumber,
     ...(courierCode && { courierCode }),
     name,
     savedAt: existing?.savedAt ?? new Date().toISOString(),
+    ...(seenLatest && { seenLatest }),
   };
 
   if (!existing && parcels.length >= MAX_PARCELS) {
@@ -68,6 +75,25 @@ parcelsRoute.put('/:trackingNumber', async (c) => {
     : [parcel, ...parcels];
   await storeParcels(c.env.USER_DATA, user.id, next);
   return c.json(parcel);
+});
+
+// Records the latest scan the user has looked at, which clears the "new update" badge.
+parcelsRoute.post('/:trackingNumber/seen', async (c) => {
+  const { trackingNumber } = parseTrackRequest({ trackingNumber: c.req.param('trackingNumber') });
+  const latest = parseScanKey(((await readJsonBody(c.req)) as Record<string, unknown> | null)?.latest);
+  if (!latest) throw new AppError(400, 'INVALID_REQUEST', '`latest` is required.');
+
+  const user = c.get('user');
+  const parcels = await loadParcels(c.env.USER_DATA, user.id);
+  if (!parcels.some((p) => p.trackingNumber === trackingNumber)) {
+    throw new AppError(404, 'NOT_FOUND', 'That parcel isn’t saved.');
+  }
+  await storeParcels(
+    c.env.USER_DATA,
+    user.id,
+    parcels.map((p) => (p.trackingNumber === trackingNumber ? { ...p, seenLatest: latest } : p)),
+  );
+  return c.body(null, 204);
 });
 
 parcelsRoute.delete('/:trackingNumber', async (c) => {

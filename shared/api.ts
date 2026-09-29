@@ -119,6 +119,8 @@ export interface SavedParcel {
   courierCode?: string;
   name: string;
   savedAt: string;
+  /** Latest scan the user has viewed ("timestamp|description"). */
+  seenLatest?: string;
 }
 
 export interface SavedParcelWithLatest extends SavedParcel {
@@ -128,6 +130,7 @@ export interface SavedParcelWithLatest extends SavedParcel {
 export interface SaveParcelRequest {
   name: string;
   courierCode?: string;
+  seenLatest?: string;
 }
 
 export type ErrorCode =

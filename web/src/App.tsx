@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 import { getAccount } from './lib/api';
 import { navigate, useRoute } from './lib/router';
-import { loadSavedParcels, useSavedParcels } from './lib/savedParcels';
+import { loadSavedParcels, unreadCount, useSavedParcels } from './lib/savedParcels';
 import { SavedPage } from './pages/SavedPage';
 import { TrackPage } from './pages/TrackPage';
 
@@ -32,6 +32,7 @@ function NavLink({ href, active, children }: { href: string; active: boolean; ch
 export function App() {
   const { page, key } = useRoute();
   const { parcels } = useSavedParcels();
+  const unread = unreadCount(parcels);
   const [email, setEmail] = useState<string | null>(null);
 
   useEffect(() => {
@@ -65,6 +66,11 @@ export function App() {
             </NavLink>
             <NavLink href="/saved" active={page === 'saved'}>
               Saved <span className="font-mono font-normal">({parcels.length})</span>
+              {unread > 0 && (
+                <span className="ml-1.5 rounded-sm bg-sticker px-1.5 py-0.5 align-middle text-[10px] font-bold tracking-wider text-ink">
+                  {unread} new
+                </span>
+              )}
             </NavLink>
           </nav>
         </div>

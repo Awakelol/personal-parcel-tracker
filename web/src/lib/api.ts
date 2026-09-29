@@ -72,6 +72,10 @@ export function putParcel(trackingNumber: string, body: SaveParcelRequest): Prom
   return request(`/api/parcels/${encodeURIComponent(trackingNumber)}`, jsonInit('PUT', body));
 }
 
+export function markParcelSeen(trackingNumber: string, latest: string): Promise<void> {
+  return request(`/api/parcels/${encodeURIComponent(trackingNumber)}/seen`, jsonInit('POST', { latest }));
+}
+
 export function deleteParcel(trackingNumber: string): Promise<void> {
   return request(`/api/parcels/${encodeURIComponent(trackingNumber)}`, { method: 'DELETE' });
 }

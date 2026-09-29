@@ -10,7 +10,7 @@ import { WaybillLabel } from '../components/WaybillLabel';
 import { useRecentSearches } from '../hooks/useRecentSearches';
 import { useTrack } from '../hooks/useTrack';
 import { trackUrl } from '../lib/router';
-import { isSaved, loadSavedParcels, updateSnapshot } from '../lib/savedParcels';
+import { isSaved, loadSavedParcels, markSeen, updateSnapshot } from '../lib/savedParcels';
 
 function requestFromUrl(): TrackRequest | null {
   const params = new URLSearchParams(window.location.search);
@@ -67,6 +67,11 @@ export function TrackPage() {
     );
     return () => clearTimeout(timer);
   }, [state, track]);
+
+  // Viewing a saved parcel's details counts as reading its new scans.
+  useEffect(() => {
+    if (state.status === 'success') markSeen(state.result);
+  }, [state]);
 
   const route = state.status === 'success' ? (state.result.analysis?.route ?? []) : [];
 

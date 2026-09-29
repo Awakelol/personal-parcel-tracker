@@ -23,13 +23,19 @@ function errorMessage(err: unknown): string {
   return err instanceof ApiError ? err.message : 'Something went wrong. Try again.';
 }
 
+// Parcels with unread updates go first within each group.
 function sortParcels(parcels: SavedParcelView[]) {
   const isDelivered = (p: SavedParcelView) => p.last?.status === 'delivered';
+  const unread = (p: SavedParcelView) => ((p.last?.newScans ?? 0) > 0 ? 0 : 1);
   const eta = (p: SavedParcelView) => p.last?.estimatedDelivery?.earliest ?? '9999';
   const lastScan = (p: SavedParcelView) => p.last?.latestEvent?.timestamp ?? '';
   return {
-    onTheWay: parcels.filter((p) => !isDelivered(p)).sort((a, b) => eta(a).localeCompare(eta(b))),
-    delivered: parcels.filter(isDelivered).sort((a, b) => lastScan(b).localeCompare(lastScan(a))),
+    onTheWay: parcels
+      .filter((p) => !isDelivered(p))
+      .sort((a, b) => unread(a) - unread(b) || eta(a).localeCompare(eta(b))),
+    delivered: parcels
+      .filter(isDelivered)
+      .sort((a, b) => unread(a) - unread(b) || lastScan(b).localeCompare(lastScan(a))),
   };
 }
 
@@ -187,9 +193,14 @@ function SavedParcelCard({ parcel, refresh }: { parcel: SavedParcelView; refresh
           ? `Checked ${formatRelative(last.fetchedAt)}`
           : '';
   const footerIsError = !!actionError || refresh?.status === 'error';
+  const newScans = last?.newScans ?? 0;
 
   return (
-    <article className="on-paper flex h-full flex-col rounded-sm bg-paper text-ink shadow-[0_1px_0_var(--color-kraft-edge),0_14px_28px_-18px_rgba(0,0,0,0.55)]">
+    <article
+      className={`on-paper flex h-full flex-col rounded-sm bg-paper text-ink shadow-[0_1px_0_var(--color-kraft-edge),0_14px_28px_-18px_rgba(0,0,0,0.55)] ${
+        newScans > 0 ? 'ring-4 ring-sticker' : ''
+      }`}
+    >
       <header className="flex items-stretch justify-between gap-3 border-b-2 border-ink">
         {renaming ? (
           <form onSubmit={handleRename} className="flex min-w-0 flex-1 gap-2 px-3 py-2">
@@ -227,9 +238,16 @@ function SavedParcelCard({ parcel, refresh }: { parcel: SavedParcelView; refresh
         )}
       </header>
 
-      <p className="px-4 pt-3 font-mono text-[12px] text-ink-muted">
-        {last?.courierName ? `${last.courierName} · ` : ''}
-        {parcel.trackingNumber}
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 px-4 pt-3 font-mono text-[12px] text-ink-muted">
+        {newScans > 0 && (
+          <span className="rounded-sm bg-sticker px-1.5 py-0.5 font-sans text-[11px] font-bold uppercase tracking-wider text-ink">
+            New update · {newScans} new scan{newScans === 1 ? '' : 's'}
+          </span>
+        )}
+        <span>
+          {last?.courierName ? `${last.courierName} · ` : ''}
+          {parcel.trackingNumber}
+        </span>
       </p>
 
       <div className="grid flex-1 gap-4 px-4 py-3 sm:grid-cols-[1fr_auto]">
@@ -237,7 +255,7 @@ function SavedParcelCard({ parcel, refresh }: { parcel: SavedParcelView; refresh
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted">Latest update</p>
           {last?.latestEvent ? (
             <>
-              <p className="mt-1 leading-snug">{last.latestEvent.description}</p>
+              <p className={`mt-1 leading-snug ${newScans > 0 ? 'font-semibold' : ''}`}>{last.latestEvent.description}</p>
               <p className="mt-0.5 text-sm text-ink-muted">
                 {[last.latestEvent.location, formatRelative(last.latestEvent.timestamp)].filter(Boolean).join(' · ')}
               </p>
