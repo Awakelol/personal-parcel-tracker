@@ -52,7 +52,7 @@ export function Timeline({ events }: TimelineProps) {
 
       {events.length === 0 ? (
         <p className="px-4 py-6 text-[15px] sm:px-6">
-          No scans yet. Couriers usually report the first scan within a day of the label being created.
+          No scans yet. If you just added this parcel, its history can take a minute or two to load.
         </p>
       ) : (
         <div className="px-4 py-2 sm:px-6">

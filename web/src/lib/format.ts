@@ -1,7 +1,7 @@
 import type { DateRange, ParcelStatus } from '@shared/api';
 
 export const STATUS_LABELS: Record<ParcelStatus, string> = {
-  pending: 'Awaiting first scan',
+  pending: 'Loading history',
   not_found: 'Not found',
   info_received: 'Label created',
   in_transit: 'In transit',

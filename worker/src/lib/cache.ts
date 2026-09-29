@@ -9,8 +9,11 @@ export const CACHE_TTL_SECONDS = 60 * 60;
 
 // Partial results (no summary, or no scans yet) expire sooner.
 export const PARTIAL_CACHE_TTL_SECONDS = 5 * 60;
+// Still loading upstream; KV's minimum TTL.
+export const PENDING_CACHE_TTL_SECONDS = 60;
 
 export function cacheTtlFor(result: TrackResult): number {
+  if (result.status === 'pending' && result.events.length === 0) return PENDING_CACHE_TTL_SECONDS;
   const isComplete = result.analysis !== null && result.events.length > 0;
   return isComplete ? CACHE_TTL_SECONDS : PARTIAL_CACHE_TTL_SECONDS;
 }

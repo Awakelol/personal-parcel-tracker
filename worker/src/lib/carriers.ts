@@ -15,6 +15,9 @@ export const SPX_17TRACK_CARRIER_ID = SEVENTEENTRACK_CARRIER_IDS['spx-ph'];
 /** SPX Philippines numbers look like SPXPH0xxxxxxxxxxx or PH123456789012A. */
 const SPX_TRACKING_NUMBER_PATTERN = /^(SPXPH\d{8,}|PH\d{12}[A-Z])$/;
 
+/** Flash Express PH: P + 4 digits + 8 letters/digits, e.g. P1234ABCD5678. */
+const FLASH_PH_TRACKING_NUMBER_PATTERN = /^P\d{4}[A-Z0-9]{8}$/;
+
 export type TrackingRoute =
   | { provider: 'spx' }
   | { provider: '17track'; carrierId: number | undefined };
@@ -23,9 +26,12 @@ export function resolveRoute({ trackingNumber, courierCode }: TrackRequest): Tra
   if (courierCode === 'spx-ph') return { provider: 'spx' };
 
   if (!courierCode) {
-    return SPX_TRACKING_NUMBER_PATTERN.test(trackingNumber)
-      ? { provider: 'spx' }
-      : { provider: '17track', carrierId: undefined };
+    if (SPX_TRACKING_NUMBER_PATTERN.test(trackingNumber)) return { provider: 'spx' };
+    // 17TRACK's auto-detection often misses brand-new Flash numbers.
+    if (FLASH_PH_TRACKING_NUMBER_PATTERN.test(trackingNumber)) {
+      return { provider: '17track', carrierId: SEVENTEENTRACK_CARRIER_IDS['flash-ph'] };
+    }
+    return { provider: '17track', carrierId: undefined };
   }
 
   if (isCourierCode(courierCode)) {

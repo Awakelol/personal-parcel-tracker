@@ -6,8 +6,8 @@ import type { TrackingLookup } from './tracking';
 
 const BASE_URL = 'https://api.17track.net/track/v2.4';
 
-// New registrations usually have results within a few seconds.
-const REGISTRATION_SETTLE_MS = 2_500;
+// 17TRACK fetches a newly registered number in the background; poll briefly.
+const REGISTRATION_POLL_DELAYS_MS = [2_000, 3_000, 4_000];
 
 const ERR_IP_NOT_ALLOWED = -18010001;
 const ERR_INVALID_KEY = -18010002;
@@ -92,8 +92,16 @@ export async function fetch17TrackRaw(
 
   if (outcome.kind === 'not_registered') {
     carrier = (await register(apiKey, itemRequest(trackingNumber, carrier))) ?? carrier;
-    await new Promise((resolve) => setTimeout(resolve, REGISTRATION_SETTLE_MS));
-    outcome = await getTrackInfo(apiKey, itemRequest(trackingNumber, carrier));
+    for (const delay of REGISTRATION_POLL_DELAYS_MS) {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      outcome = await getTrackInfo(apiKey, itemRequest(trackingNumber, carrier));
+      if (outcome.kind === 'ok' && hasEvents(outcome.item)) break;
+    }
+  }
+
+  // Registered, but 17TRACK hasn't heard back from the courier yet.
+  if (outcome.kind === 'ok' && (outcome.item.track_info?.tracking?.providers ?? []).length === 0) {
+    return { number: trackingNumber, carrier: outcome.item.carrier ?? carrier, track_info: null };
   }
 
   if (outcome.kind === 'ok') return outcome.item;
@@ -137,6 +145,10 @@ export function normalize17Track(raw: SeventeenTrackRaw): TrackingLookup {
       })),
     },
   };
+}
+
+function hasEvents(item: SeventeenTrackRaw): boolean {
+  return (item.track_info?.tracking?.providers ?? []).some((p) => (p.events?.length ?? 0) > 0);
 }
 
 function itemRequest(number: string, carrier: number | null): StItemRequest {
