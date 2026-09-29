@@ -11,6 +11,8 @@ export interface TrackRequest {
   trackingNumber: string;
   // A CourierCode or numeric 17TRACK carrier id; detected if omitted.
   courierCode?: string;
+  /** Skip the cache and ask the courier/17TRACK again. */
+  fresh?: boolean;
 }
 
 export type ParcelStatus =

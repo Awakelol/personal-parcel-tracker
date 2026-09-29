@@ -4,7 +4,14 @@ import { ArrivalEstimate } from '../components/ArrivalEstimate';
 import { ApiError, trackParcel } from '../lib/api';
 import { ALERT_STATUSES, STATUS_LABELS, formatRelative } from '../lib/format';
 import { navigate, trackUrl } from '../lib/router';
-import { MAX_NAME_LENGTH, removeParcel, renameParcel, updateSnapshot, useSavedParcels } from '../lib/savedParcels';
+import {
+  MAX_NAME_LENGTH,
+  reloadSavedParcels,
+  removeParcel,
+  renameParcel,
+  updateSnapshot,
+  useSavedParcels,
+} from '../lib/savedParcels';
 import type { SavedParcelView } from '../lib/savedParcels';
 
 // 17TRACK allows 3 req/s.
@@ -30,7 +37,6 @@ export function SavedPage() {
   const { status, parcels, error } = useSavedParcels();
   const [refresh, setRefresh] = useState<RefreshState>({});
   const inFlight = useRef<AbortController | null>(null);
-  const refreshedOnOpen = useRef(false);
 
   const refreshParcels = useCallback(async (items: SavedParcelView[]) => {
     inFlight.current?.abort();
@@ -44,7 +50,7 @@ export function SavedPage() {
       for (let parcel = queue.shift(); parcel; parcel = queue.shift()) {
         const { trackingNumber, courierCode } = parcel;
         try {
-          const result = await trackParcel(courierCode ? { trackingNumber, courierCode } : { trackingNumber }, controller.signal);
+          const result = await trackParcel({ trackingNumber, courierCode, fresh: true }, controller.signal);
           updateSnapshot(result);
           setRefresh(({ [trackingNumber]: _done, ...rest }) => rest);
         } catch (err) {
@@ -57,15 +63,17 @@ export function SavedPage() {
     await Promise.all(Array.from({ length: REFRESH_CONCURRENCY }, worker));
   }, []);
 
-  // The list already includes cached results; only look up the rest.
+  // Every visit: pick up saves from other devices, then re-check each parcel.
   useEffect(() => {
-    if (status !== 'ready' || refreshedOnOpen.current) return;
-    refreshedOnOpen.current = true;
-    const stale = parcels.filter((p) => !p.last);
-    if (stale.length > 0) void refreshParcels(stale);
-  }, [status, parcels, refreshParcels]);
-
-  useEffect(() => () => inFlight.current?.abort(), []);
+    let cancelled = false;
+    void reloadSavedParcels().then((list) => {
+      if (!cancelled && list.length > 0) void refreshParcels(list);
+    });
+    return () => {
+      cancelled = true;
+      inFlight.current?.abort();
+    };
+  }, [refreshParcels]);
 
   const { onTheWay, delivered } = sortParcels(parcels);
   const isRefreshing = Object.values(refresh).some((r) => r.status === 'loading');

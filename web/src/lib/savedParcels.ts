@@ -64,21 +64,43 @@ async function importLegacyParcels(): Promise<void> {
   localStorage.removeItem(LEGACY_STORAGE_KEY);
 }
 
+async function fetchList(): Promise<SavedParcelView[]> {
+  const previous = new Map(state.parcels.map((p) => [p.trackingNumber, p.last]));
+  const parcels = await listParcels();
+  // Keep what's already on screen when the server's cache has expired.
+  return parcels.map(({ latest, ...parcel }) => {
+    const last = latest ? snapshotOf(latest) : previous.get(parcel.trackingNumber);
+    return { ...parcel, ...(last && { last }) };
+  });
+}
+
 export function loadSavedParcels(): Promise<void> {
   loading ??= (async () => {
     try {
       await importLegacyParcels();
-      const parcels = await listParcels();
-      setState({
-        status: 'ready',
-        parcels: parcels.map(({ latest, ...parcel }) => ({ ...parcel, ...(latest && { last: snapshotOf(latest) }) })),
-      });
+      setState({ status: 'ready', parcels: await fetchList() });
     } catch (err) {
       loading = null;
       setState({ ...state, status: 'error', error: err instanceof ApiError ? err.message : 'Could not load saved parcels.' });
     }
   })();
   return loading;
+}
+
+export function isSaved(trackingNumber: string): boolean {
+  const normalized = trackingNumber.replace(/[\s-]/g, '').toUpperCase();
+  return state.parcels.some((p) => p.trackingNumber === normalized);
+}
+
+/** Re-fetches the list (e.g. to pick up saves from another device). */
+export async function reloadSavedParcels(): Promise<SavedParcelView[]> {
+  await loadSavedParcels();
+  try {
+    setState({ status: 'ready', parcels: await fetchList() });
+  } catch {
+    // Keep showing the list we have.
+  }
+  return state.parcels;
 }
 
 function subscribe(listener: () => void): () => void {

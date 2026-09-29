@@ -10,7 +10,7 @@ import { WaybillLabel } from '../components/WaybillLabel';
 import { useRecentSearches } from '../hooks/useRecentSearches';
 import { useTrack } from '../hooks/useTrack';
 import { trackUrl } from '../lib/router';
-import { updateSnapshot } from '../lib/savedParcels';
+import { isSaved, loadSavedParcels, updateSnapshot } from '../lib/savedParcels';
 
 function requestFromUrl(): TrackRequest | null {
   const params = new URLSearchParams(window.location.search);
@@ -31,7 +31,9 @@ export function TrackPage() {
     async (request: TrackRequest) => {
       recheckCount.current = 0;
       window.history.replaceState(null, '', trackUrl(request.trackingNumber, request.courierCode));
-      const result = await track(request);
+      // Saved parcels always get a fresh check instead of the hourly cache.
+      await loadSavedParcels();
+      const result = await track({ ...request, fresh: isSaved(request.trackingNumber) });
       if (result) {
         remember({ ...request, trackingNumber: result.trackingNumber, courierName: result.courierName });
         updateSnapshot(result);
