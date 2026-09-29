@@ -1,4 +1,4 @@
-name = "parcel-tracker-api"
+name = "personal-parcel-tracker"
 main = "src/index.ts"
 compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
