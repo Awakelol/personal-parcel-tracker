@@ -1,0 +1,24 @@
+name = "parcel-tracker-api"
+main = "src/index.ts"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+# Caches the combined TrackingMore + Gemini result per tracking number (1h TTL).
+# Create the namespace with:  npx wrangler kv namespace create TRACKING_CACHE
+# then paste the returned id below. `wrangler dev` uses a local simulated KV,
+# so the placeholder works for local development.
+[[kv_namespaces]]
+binding = "TRACKING_CACHE"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+[vars]
+# Comma-separated origins allowed to call /api/* (Vite dev server by default).
+ALLOWED_ORIGIN = "http://localhost:5173"
+
+# Secrets — never commit these. Set them with:
+#   npx wrangler secret put GEMINI_API_KEY
+#   npx wrangler secret put TRACKINGMORE_API_KEY
+# For local dev, copy .dev.vars.example to .dev.vars and fill in the values.
