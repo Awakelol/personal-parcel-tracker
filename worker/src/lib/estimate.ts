@@ -16,7 +16,11 @@ export function resolveEstimatedDelivery(
 ): EstimatedDelivery | null {
   if (NO_ESTIMATE_STATUSES.has(status)) return null;
   if (carrierEstimate && carrierEstimate.latest >= today) return { ...carrierEstimate, source: 'carrier' };
-  if (analysis?.estimatedDelivery) return { ...analysis.estimatedDelivery, source: 'gemini' };
+  // Summaries are reused for weeks, so drop an estimate that has already passed.
+  if (analysis?.estimatedDelivery && analysis.estimatedDelivery.latest >= today) {
+    const earliest = analysis.estimatedDelivery.earliest < today ? today : analysis.estimatedDelivery.earliest;
+    return { earliest, latest: analysis.estimatedDelivery.latest, source: 'gemini' };
+  }
   return null;
 }
 

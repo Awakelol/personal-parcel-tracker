@@ -33,7 +33,7 @@ export function TrackPage() {
       window.history.replaceState(null, '', trackUrl(request.trackingNumber, request.courierCode));
       // Saved parcels always get a fresh check instead of the hourly cache.
       await loadSavedParcels();
-      const result = await track({ ...request, fresh: isSaved(request.trackingNumber) });
+      const result = await track({ ...request, fresh: isSaved(request.trackingNumber), deferAnalysis: true });
       if (result) {
         remember({ ...request, trackingNumber: result.trackingNumber, courierName: result.courierName });
         updateSnapshot(result);
@@ -53,7 +53,7 @@ export function TrackPage() {
     if (state.status !== 'success') return;
     const { result, request } = state;
     const stillLoading = result.status === 'pending' && result.events.length === 0;
-    const missingSummary = result.events.length > 0 && !result.analysis;
+    const missingSummary = result.events.length > 0 && !result.analysis && !result.analysisPending;
     if (!stillLoading && !missingSummary) return;
     if (recheckCount.current >= (stillLoading ? 8 : 3)) return;
 

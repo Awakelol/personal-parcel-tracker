@@ -13,6 +13,8 @@ export interface TrackRequest {
   courierCode?: string;
   /** Skip the cache and ask the courier/17TRACK again. */
   fresh?: boolean;
+  /** Return scans right away and write the summary separately. */
+  deferAnalysis?: boolean;
 }
 
 export type ParcelStatus =
@@ -69,16 +71,34 @@ export interface RouteStop {
   role: RouteStopRole;
 }
 
+export interface Place {
+  /** Facility name as written in the scans, e.g. "11 PN5-HUB_Santa Rosa". */
+  facility: string | null;
+  /** City and province, e.g. "Santa Rosa City, Laguna". */
+  area: string | null;
+}
+
+export interface ParcelLocation {
+  state: 'at_facility' | 'in_transit' | 'out_for_delivery' | 'delivered' | 'unknown';
+  current: Place | null;
+  /** Set when moving between facilities. */
+  from: Place | null;
+  to: Place | null;
+}
+
 export interface AiAnalysis {
   summary: string;
   jargon: JargonTerm[];
   nextSteps: string[];
   estimatedDelivery: DateRange | null;
   route: RouteStop[];
+  location: ParcelLocation | null;
 }
 
 export interface TrackResult extends TrackingSnapshot {
   analysis: AiAnalysis | null;
+  /** The summary is still being written; fetch it from /api/track/analysis. */
+  analysisPending: boolean;
   estimatedDelivery: EstimatedDelivery | null;
   fetchedAt: string;
 }

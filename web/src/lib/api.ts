@@ -55,6 +55,11 @@ export function trackParcel(req: TrackRequest, signal?: AbortSignal): Promise<Tr
   return request('/api/track', { ...jsonInit('POST', req), signal });
 }
 
+export function fetchAnalysis(req: TrackRequest, signal?: AbortSignal): Promise<TrackResponse> {
+  const { trackingNumber, courierCode } = req;
+  return request('/api/track/analysis', { ...jsonInit('POST', { trackingNumber, courierCode }), signal });
+}
+
 export function getAccount(): Promise<Account> {
   return request('/api/me');
 }
