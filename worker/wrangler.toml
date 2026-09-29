@@ -15,7 +15,7 @@ binding = "TRACKING_CACHE"
 [vars]
 # Comma-separated origins allowed to call /api/* (Vite dev server by default).
 ALLOWED_ORIGIN = "http://localhost:5173"
-GEMINI_MODEL = "gemini-3.8-flash"
+GEMINI_MODEL = "gemini-3.5-flash"
 GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite"
 
 # Secrets — never commit these. Set them with:

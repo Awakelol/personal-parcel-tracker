@@ -60,5 +60,5 @@ for 5 minutes instead.
 | Var                     | Default                 | Purpose                                      |
 | ----------------------- | ----------------------- | -------------------------------------------- |
 | `ALLOWED_ORIGIN`        | `http://localhost:5173` | Comma-separated CORS origins                 |
-| `GEMINI_MODEL`          | `gemini-3.8-flash`      | Primary analysis model                       |
+| `GEMINI_MODEL`          | `gemini-3.5-flash`      | Primary analysis model                       |
 | `GEMINI_FALLBACK_MODEL` | `gemini-3.5-flash-lite` | Used when the primary returns 429/5xx        |
