@@ -3,7 +3,8 @@ import type { AiAnalysis, DateRange, JargonTerm, RouteStop, RouteStopRole } from
 import type { Env } from '../env';
 import { philippineToday } from '../lib/estimate';
 
-const REQUEST_TIMEOUT_MS = 20_000;
+/** Per model attempt; primary + fallback stay well under a comfortable wait. */
+const REQUEST_TIMEOUT_MS = 12_000;
 
 const SYSTEM_PROMPT = `Act as a logistics expert. Analyze this raw tracking JSON. Return a 2-sentence summary of its current status, explain any jargon, and provide an educated guess on the remaining transit steps.
 
@@ -78,7 +79,7 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * Asks Gemini to analyse the tracking JSON, falling back to
- * GEMINI_FALLBACK_MODEL when the primary model is overloaded. Throws on failure.
+ * GEMINI_FALLBACK_MODEL when the primary model is overloaded or slow. Throws on failure.
  */
 export async function analyzeTracking(env: Env, trackingData: unknown, now = new Date()): Promise<AiAnalysis> {
   const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
@@ -91,16 +92,18 @@ export async function analyzeTracking(env: Env, trackingData: unknown, now = new
   try {
     return await analyzeWithModel(ai, env.GEMINI_MODEL, prompt, now);
   } catch (err) {
-    const canFallBack =
-      err instanceof ApiError &&
-      RETRYABLE_STATUSES.has(err.status) &&
-      env.GEMINI_FALLBACK_MODEL &&
-      env.GEMINI_FALLBACK_MODEL !== env.GEMINI_MODEL;
+    const isRetryable = (err instanceof ApiError && RETRYABLE_STATUSES.has(err.status)) || isTimeout(err);
+    const canFallBack = isRetryable && env.GEMINI_FALLBACK_MODEL && env.GEMINI_FALLBACK_MODEL !== env.GEMINI_MODEL;
     if (!canFallBack) throw err;
 
-    console.warn(`Gemini ${env.GEMINI_MODEL} returned ${err.status}; retrying with ${env.GEMINI_FALLBACK_MODEL}.`);
+    const reason = err instanceof ApiError ? `returned ${err.status}` : 'timed out';
+    console.warn(`Gemini ${env.GEMINI_MODEL} ${reason}; retrying with ${env.GEMINI_FALLBACK_MODEL}.`);
     return analyzeWithModel(ai, env.GEMINI_FALLBACK_MODEL, prompt, now);
   }
+}
+
+function isTimeout(err: unknown): boolean {
+  return err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError' || /aborted/i.test(err.message));
 }
 
 async function analyzeWithModel(ai: GoogleGenAI, model: string, prompt: string, now: Date): Promise<AiAnalysis> {
@@ -111,8 +114,11 @@ async function analyzeWithModel(ai: GoogleGenAI, model: string, prompt: string, 
       systemInstruction: SYSTEM_PROMPT,
       responseMimeType: 'application/json',
       responseJsonSchema: ANALYSIS_SCHEMA,
-      thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+      thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
       abortSignal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      // The SDK otherwise retries up to 5 times with exponential backoff,
+      // which silently eats the whole time budget; we fall back instead.
+      httpOptions: { retryOptions: { attempts: 1 } },
     },
   });
 
