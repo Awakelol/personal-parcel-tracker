@@ -6,7 +6,7 @@ import { AppError, describeError } from '../errors';
 import { cacheKey, cacheTtlFor, readCachedResult, writeCachedResult } from '../lib/cache';
 import { parseTrackRequest } from '../lib/validation';
 import { analyzeTracking } from '../services/gemini';
-import { fetchTracking } from '../services/trackingmore';
+import { fetchTracking } from '../services/tracking';
 
 export const trackRoute = new Hono<AppBindings>();
 
@@ -20,8 +20,9 @@ trackRoute.post('/', async (c) => {
     return c.json(response);
   }
 
-  const { snapshot, raw } = await fetchTracking(c.env, request);
-  const analysis = await analyzeSafely(c.env, raw);
+  const { snapshot, analysisInput } = await fetchTracking(c.env, request);
+  // Nothing to analyse until the carrier reports its first event.
+  const analysis = snapshot.events.length > 0 ? await analyzeSafely(c.env, analysisInput) : null;
 
   const result: TrackResult = {
     ...snapshot,
@@ -46,9 +47,9 @@ async function readJsonBody(req: HonoRequest): Promise<unknown> {
 }
 
 /** The timeline is still useful without a summary, so AI failures degrade gracefully. */
-async function analyzeSafely(env: Env, raw: unknown): Promise<AiAnalysis | null> {
+async function analyzeSafely(env: Env, analysisInput: unknown): Promise<AiAnalysis | null> {
   try {
-    return await analyzeTracking(env, raw);
+    return await analyzeTracking(env, analysisInput);
   } catch (err) {
     console.error('Gemini analysis failed:', describeError(err));
     return null;

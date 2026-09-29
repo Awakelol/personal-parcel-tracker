@@ -2,13 +2,13 @@ import type { TrackRequest, TrackResult } from '../../../shared/api';
 import { describeError } from '../errors';
 
 /** Bump when the TrackResult shape changes so stale entries are ignored. */
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 
 export const CACHE_TTL_SECONDS = 60 * 60;
 
 /**
  * Shorter TTL for partial results, so a transient Gemini outage or a freshly
- * registered number that TrackingMore hasn't scraped yet isn't pinned for an hour.
+ * registered number with no carrier events yet isn't pinned for an hour.
  */
 export const PARTIAL_CACHE_TTL_SECONDS = 5 * 60;
 

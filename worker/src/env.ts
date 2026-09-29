@@ -10,7 +10,7 @@ export interface Env {
   /** Secret: set via `wrangler secret put` or `.dev.vars`. */
   GEMINI_API_KEY: string;
   /** Secret: set via `wrangler secret put` or `.dev.vars`. */
-  TRACKINGMORE_API_KEY: string;
+  SEVENTEENTRACK_API_KEY: string;
 }
 
 export interface AppBindings {

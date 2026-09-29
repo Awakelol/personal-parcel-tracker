@@ -37,7 +37,7 @@ export function parseTrackRequest(body: unknown): TrackRequest {
 
   const normalizedCourier = courierCode.trim().toLowerCase();
   if (!COURIER_CODE_PATTERN.test(normalizedCourier)) {
-    throw invalid('`courierCode` is not a valid TrackingMore courier code.');
+    throw invalid('`courierCode` is not a valid courier code.');
   }
 
   return { trackingNumber: normalizedNumber, courierCode: normalizedCourier };

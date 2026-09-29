@@ -4,7 +4,7 @@ Personal multi-carrier parcel tracking dashboard.
 
 | Path      | What                                                        |
 | --------- | ----------------------------------------------------------- |
-| `worker/` | Cloudflare Worker API (Hono) — TrackingMore + Gemini + KV   |
+| `worker/` | Cloudflare Worker API (Hono) — SPX/17TRACK + Gemini + KV    |
 | `web/`    | Vite + React + Tailwind dashboard *(Phase 3)*               |
 | `shared/` | TypeScript API contract imported by both                    |
 
@@ -24,7 +24,7 @@ Deploy:
 ```sh
 npx wrangler kv namespace create TRACKING_CACHE   # paste id into wrangler.toml
 npx wrangler secret put GEMINI_API_KEY
-npx wrangler secret put TRACKINGMORE_API_KEY
+npx wrangler secret put SEVENTEENTRACK_API_KEY
 npm run deploy
 ```
 
@@ -35,17 +35,26 @@ npm run deploy
 ```sh
 curl -X POST http://localhost:8787/api/track \
   -H "Content-Type: application/json" \
-  -d '{"trackingNumber":"P1234ABCD5678","courierCode":"flashexpress-ph"}'
+  -d '{"trackingNumber":"P1234ABCD5678","courierCode":"flash-ph"}'
 ```
 
-`courierCode` is an optional [TrackingMore courier code](https://www.trackingmore.com/couriers.html);
-when omitted, the carrier is auto-detected. The response shape is `TrackResponse`
-in [`shared/api.ts`](shared/api.ts): normalised status, a chronological event
-timeline, and Gemini's `analysis` (summary, jargon, next steps).
+`courierCode` is optional: `spx-ph`, `jnt-ph`, `ninjavan-ph`, `flash-ph`, or any
+numeric [17TRACK carrier ID](https://res.17track.net/asset/carrier/info/apicarrier.all.json).
+When omitted, `SPXPH…` numbers go to SPX and everything else is auto-detected by
+17TRACK. The response shape is `TrackResponse` in [`shared/api.ts`](shared/api.ts):
+normalised status, a chronological event timeline, and Gemini's `analysis`
+(summary, jargon, next steps).
+
+### Tracking sources (free)
+
+| Source | Used for | Limits |
+| ------ | -------- | ------ |
+| SPX public endpoint | SPX Express PH | Undocumented; may change or block. Falls back to 17TRACK on errors. |
+| [17TRACK API](https://api.17track.net/en/doc) | Everything else | One-time 200 registrations; re-checking a registered number is free. 3 req/s. Keep the IP allow-list empty. |
 
 Results are cached in KV for 1 hour per tracking number (`cached: true` on a hit).
-Partial results — Gemini failed, or TrackingMore has no checkpoints yet — are
-cached for 5 minutes instead.
+Partial results — Gemini failed, or the carrier has no events yet — are cached
+for 5 minutes instead.
 
 ### Configuration (`worker/wrangler.toml` `[vars]`)
 

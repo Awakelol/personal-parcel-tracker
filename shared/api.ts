@@ -3,9 +3,22 @@
  * React dashboard (`web/`). Keep this file free of runtime dependencies.
  */
 
+/** Couriers with first-class support. Any other carrier is auto-detected via 17TRACK. */
+export const COURIERS = [
+  { code: 'spx-ph', name: 'SPX Express (PH)' },
+  { code: 'jnt-ph', name: 'J&T Express (PH)' },
+  { code: 'ninjavan-ph', name: 'Ninja Van (PH)' },
+  { code: 'flash-ph', name: 'Flash Express (PH)' },
+] as const;
+
+export type CourierCode = (typeof COURIERS)[number]['code'];
+
 export interface TrackRequest {
   trackingNumber: string;
-  /** TrackingMore courier code (e.g. "usps", "dhl"). Auto-detected when omitted. */
+  /**
+   * A `CourierCode`, or a numeric 17TRACK carrier ID for other carriers.
+   * Auto-detected when omitted.
+   */
   courierCode?: string;
 }
 
@@ -14,6 +27,7 @@ export type ParcelStatus =
   | 'not_found'
   | 'info_received'
   | 'in_transit'
+  | 'available_for_pickup'
   | 'out_for_delivery'
   | 'delivered'
   | 'failed_attempt'
@@ -30,7 +44,9 @@ export interface TrackingEvent {
 
 export interface TrackingSnapshot {
   trackingNumber: string;
+  /** A `CourierCode`, or a numeric 17TRACK carrier ID as a string. */
   courierCode: string;
+  courierName: string | null;
   status: ParcelStatus;
   /** ISO country codes only — no addresses are stored. */
   originCountry: string | null;
@@ -53,7 +69,7 @@ export interface AiAnalysis {
 }
 
 export interface TrackResult extends TrackingSnapshot {
-  /** `null` when Gemini analysis failed; the timeline is still returned. */
+  /** `null` when there are no events to analyse yet, or Gemini failed. */
   analysis: AiAnalysis | null;
   fetchedAt: string;
 }
