@@ -6,7 +6,6 @@ interface BarcodeProps {
   className?: string;
 }
 
-/** A real, scannable Code 128 barcode of the tracking number. Decorative for screen readers. */
 export function Barcode({ value, className }: BarcodeProps) {
   const svgRef = useRef<SVGSVGElement>(null);
 

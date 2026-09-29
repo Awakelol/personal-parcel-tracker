@@ -1,9 +1,8 @@
 import { COURIERS } from '@shared/api';
-import type { TrackError } from '../lib/api';
+import type { ApiError } from '../lib/api';
 
 const LABEL_OUTLINE = 'rounded-sm border-2 border-dashed border-on-page/40';
 
-/** Before the first search: a blank label waiting to be printed. */
 export function EmptyState() {
   return (
     <div className={`${LABEL_OUTLINE} px-6 py-12 text-center`}>
@@ -30,23 +29,23 @@ export function LoadingState({ trackingNumber }: { trackingNumber: string }) {
   );
 }
 
-const ERROR_TITLES: Record<TrackError['code'], string> = {
+const ERROR_TITLES: Record<ApiError['code'], string> = {
+  UNAUTHORIZED: 'Logged out',
   INVALID_REQUEST: 'Check the tracking number',
   NOT_FOUND: 'No parcel found',
   RATE_LIMITED: 'Too many lookups',
   UPSTREAM_ERROR: 'Courier data unavailable',
-  NOT_IMPLEMENTED: 'Not available yet',
   INTERNAL_ERROR: 'Tracking failed',
   NETWORK: 'Can’t connect',
 };
 
-const ERROR_HINTS: Partial<Record<TrackError['code'], string>> = {
+const ERROR_HINTS: Partial<Record<ApiError['code'], string>> = {
   NOT_FOUND: 'Double-check the number, or choose the courier instead of detecting it.',
   UPSTREAM_ERROR: 'The courier or tracking service didn’t respond properly. Try again in a minute.',
   RATE_LIMITED: 'Wait a minute before tracking again.',
 };
 
-export function ErrorState({ error, onRetry }: { error: TrackError; onRetry: () => void }) {
+export function ErrorState({ error, onRetry }: { error: ApiError; onRetry: () => void }) {
   const hint = ERROR_HINTS[error.code];
   return (
     <div role="alert" className="on-paper rounded-sm border-l-8 border-alert bg-paper px-5 py-4 text-ink">
@@ -56,10 +55,10 @@ export function ErrorState({ error, onRetry }: { error: TrackError; onRetry: () 
       {error.code !== 'INVALID_REQUEST' && (
         <button
           type="button"
-          onClick={onRetry}
+          onClick={error.code === 'UNAUTHORIZED' ? () => window.location.reload() : onRetry}
           className="mt-3 rounded-sm border-2 border-ink px-3 py-1 text-sm font-semibold hover:bg-ink hover:text-paper"
         >
-          Try again
+          {error.code === 'UNAUTHORIZED' ? 'Log in again' : 'Try again'}
         </button>
       )}
     </div>

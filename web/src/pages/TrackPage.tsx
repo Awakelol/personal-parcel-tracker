@@ -12,7 +12,6 @@ import { useTrack } from '../hooks/useTrack';
 import { trackUrl } from '../lib/router';
 import { updateSnapshot } from '../lib/savedParcels';
 
-/** `?n=<tracking number>&c=<courier>` makes a lookup bookmarkable. */
 function requestFromUrl(): TrackRequest | null {
   const params = new URLSearchParams(window.location.search);
   const trackingNumber = params.get('n')?.trim();
@@ -39,8 +38,6 @@ export function TrackPage() {
   );
 
   useEffect(() => {
-    // Only on first load; StrictMode's double run is harmless because a new
-    // lookup cancels the one in flight.
     if (initialRequest) void handleTrack(initialRequest);
   }, [initialRequest, handleTrack]);
 

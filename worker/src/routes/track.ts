@@ -1,10 +1,10 @@
 import { Hono } from 'hono';
-import type { HonoRequest } from 'hono';
 import type { AiAnalysis, TrackResponse, TrackResult } from '../../../shared/api';
 import type { AppBindings, Env } from '../env';
-import { AppError, describeError } from '../errors';
+import { describeError } from '../errors';
 import { cacheKey, cacheTtlFor, readCachedResult, writeCachedResult } from '../lib/cache';
 import { philippineToday, resolveEstimatedDelivery } from '../lib/estimate';
+import { readJsonBody } from '../lib/request';
 import { parseTrackRequest } from '../lib/validation';
 import { analyzeTracking } from '../services/gemini';
 import { fetchTracking } from '../services/tracking';
@@ -22,7 +22,6 @@ trackRoute.post('/', async (c) => {
   }
 
   const { snapshot, carrierEstimate, analysisInput } = await fetchTracking(c.env, request);
-  // Nothing to analyse until the carrier reports its first event.
   const analysis = snapshot.events.length > 0 ? await analyzeSafely(c.env, analysisInput) : null;
 
   const now = new Date();
@@ -33,23 +32,13 @@ trackRoute.post('/', async (c) => {
     fetchedAt: now.toISOString(),
   };
 
-  c.executionCtx.waitUntil(
-    writeCachedResult(c.env.TRACKING_CACHE, key, result, cacheTtlFor(result)),
-  );
+  c.executionCtx.waitUntil(writeCachedResult(c.env.TRACKING_CACHE, key, result, cacheTtlFor(result)));
 
   const response: TrackResponse = { ...result, cached: false };
   return c.json(response);
 });
 
-async function readJsonBody(req: HonoRequest): Promise<unknown> {
-  try {
-    return await req.json();
-  } catch {
-    throw new AppError(400, 'INVALID_REQUEST', 'Request body must be valid JSON.');
-  }
-}
-
-/** The timeline is still useful without a summary, so AI failures degrade gracefully. */
+// A missing summary shouldn't cost the user the timeline.
 async function analyzeSafely(env: Env, analysisInput: unknown): Promise<AiAnalysis | null> {
   try {
     return await analyzeTracking(env, analysisInput);

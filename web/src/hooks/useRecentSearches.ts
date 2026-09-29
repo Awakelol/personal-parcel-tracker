@@ -4,7 +4,6 @@ import type { TrackRequest } from '@shared/api';
 const STORAGE_KEY = 'parcel-tracker:recent';
 const MAX_RECENT = 6;
 
-/** Tracking numbers only (no PII), kept in this browser's localStorage. */
 export interface RecentSearch extends TrackRequest {
   courierName: string | null;
 }
@@ -22,7 +21,7 @@ function save(items: RecentSearch[]): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   } catch {
-    // Storage unavailable (private mode, quota): recents are a convenience only.
+    // Storage blocked or full; recents are optional.
   }
 }
 

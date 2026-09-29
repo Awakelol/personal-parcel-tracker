@@ -6,7 +6,7 @@ import type { TrackingLookup } from './tracking';
 
 const BASE_URL = 'https://api.17track.net/track/v2.4';
 
-/** 17TRACK usually has results seconds after registration; wait once before re-polling. */
+// New registrations usually have results within a few seconds.
 const REGISTRATION_SETTLE_MS = 2_500;
 
 const ERR_IP_NOT_ALLOWED = -18010001;
@@ -17,8 +17,6 @@ const ERR_NOT_REGISTERED = -18019902;
 const ERR_CARRIER_NOT_DETECTED = -18019903;
 const ERR_QUOTA_EXHAUSTED = -18019908;
 const ERR_NO_INFO_YET = -18019909;
-
-// --- 17TRACK v2.4 response shapes (only the fields we read) ----------------
 
 interface StError {
   code: number;
@@ -83,12 +81,7 @@ type TrackInfoOutcome =
   | { kind: 'pending' }
   | { kind: 'not_registered' };
 
-// --- Public API -------------------------------------------------------------
-
-/**
- * Fetches the raw 17TRACK tracking JSON. Registers the number (1 quota unit)
- * only if it isn't registered yet, so repeat lookups are free.
- */
+// Registering costs quota, so only register numbers 17TRACK doesn't know yet.
 export async function fetch17TrackRaw(
   apiKey: string,
   trackingNumber: string,
@@ -125,7 +118,7 @@ export function normalize17Track(raw: SeventeenTrackRaw): TrackingLookup {
       events: events.map(toTrackingEvent),
     },
     carrierEstimate: carrierEstimate(info),
-    // Drops shipping_info streets/postcodes and misc_info reference numbers.
+    // No addresses or reference numbers.
     analysisInput: {
       source: '17TRACK',
       tracking_number: raw.number,
@@ -145,8 +138,6 @@ export function normalize17Track(raw: SeventeenTrackRaw): TrackingLookup {
     },
   };
 }
-
-// --- 17TRACK calls ----------------------------------------------------------
 
 function itemRequest(number: string, carrier: number | null): StItemRequest {
   return carrier ? { number, carrier } : { number };
@@ -173,7 +164,6 @@ async function getTrackInfo(apiKey: string, request: StItemRequest): Promise<Tra
   throw fromStError(error);
 }
 
-/** Registers a number and returns the (possibly auto-detected) carrier ID. */
 async function register(apiKey: string, request: StItemRequest): Promise<number | null> {
   const { accepted, rejected } = await call17Track(apiKey, '/register', [request]);
 
@@ -231,8 +221,6 @@ function fromStError(error: StError): AppError {
   }
 }
 
-// --- Normalisation ----------------------------------------------------------
-
 const STATUS_MAP: Record<string, ParcelStatus> = {
   NotFound: 'not_found',
   InfoReceived: 'info_received',
@@ -249,7 +237,6 @@ function mapStatus(status: string | null | undefined): ParcelStatus {
   return (status && STATUS_MAP[status]) || 'unknown';
 }
 
-/** The carrier's own delivery window, as calendar dates in the carrier's local time. */
 function carrierEstimate(info: StTrackInfo | null): DateRange | null {
   const estimate = info?.time_metrics?.estimated_delivery_date;
   const from = estimate?.from?.slice(0, 10);
@@ -258,7 +245,6 @@ function carrierEstimate(info: StTrackInfo | null): DateRange | null {
   return from <= to ? { earliest: from, latest: to } : { earliest: to, latest: from };
 }
 
-/** Merges all providers' events (e.g. origin + last-mile), deduplicated, oldest first. */
 function collectEvents(providers: StProvider[]): StEvent[] {
   const seen = new Set<string>();
   return providers
@@ -285,7 +271,7 @@ function eventLocation(event: StEvent): string | null {
   return [city, state, country].filter(Boolean).join(', ') || null;
 }
 
-/** Some carriers (e.g. Flash PH) append the location as ",【Province】,【City】". */
+// Flash PH appends the location as ",【Province】,【City】".
 const BRACKETED_LOCATION = /,?\s*【([^】]+)】/g;
 
 function toTrackingEvent(event: StEvent): TrackingEvent {
@@ -298,7 +284,6 @@ function toTrackingEvent(event: StEvent): TrackingEvent {
   return {
     timestamp: event.time_iso ?? event.time_utc ?? '',
     description,
-    // Most specific first: "Navotas City, Metro Manila".
     location: eventLocation(event) ?? (bracketed.length ? bracketed.reverse().join(', ') : null),
   };
 }

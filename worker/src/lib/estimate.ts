@@ -1,6 +1,5 @@
 import type { AiAnalysis, DateRange, EstimatedDelivery, ParcelStatus } from '../../../shared/api';
 
-/** Statuses where an arrival estimate is meaningless. */
 const NO_ESTIMATE_STATUSES: ReadonlySet<ParcelStatus> = new Set([
   'delivered',
   'expired',
@@ -8,7 +7,7 @@ const NO_ESTIMATE_STATUSES: ReadonlySet<ParcelStatus> = new Set([
   'exception',
 ]);
 
-/** Prefers the carrier's own estimate while it's still in the future, then Gemini's. */
+// Carrier estimate wins while it's still in the future.
 export function resolveEstimatedDelivery(
   status: ParcelStatus,
   carrierEstimate: DateRange | null,
@@ -21,7 +20,6 @@ export function resolveEstimatedDelivery(
   return null;
 }
 
-/** Today's date (YYYY-MM-DD) in the Philippines. */
 export function philippineToday(now = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(now);
 }

@@ -1,2 +1,4 @@
 GEMINI_API_KEY=your-gemini-api-key
 SEVENTEENTRACK_API_KEY=your-17track-api-key
+# Local only: skip Cloudflare Access and act as this user on localhost.
+DEV_USER_EMAIL=dev@example.com

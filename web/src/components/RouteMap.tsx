@@ -19,7 +19,7 @@ const ROLE_LABELS: Record<RouteStopRole, string> = {
   destination: 'Destination',
 };
 
-/** Screen size of markers/text, in px at the full-country zoom (map rendered ~340px wide). */
+// Marker/text sizes are in px, assuming the map renders ~340px wide.
 const UNITS_PER_PX = PH_MAP.width / 340;
 const MIN_ZOOM_HEIGHT = 170;
 
@@ -28,7 +28,6 @@ function findLastIndex<T>(items: T[], predicate: (item: T) => boolean): number {
   return -1;
 }
 
-/** Viewbox around the route, same aspect ratio as the full map so nothing letterboxes. */
 function routeViewBox(points: Point[]): [number, number, number, number] {
   const aspect = PH_MAP.width / PH_MAP.height;
   const xs = points.map((p) => p.x);
@@ -39,7 +38,6 @@ function routeViewBox(points: Point[]): [number, number, number, number] {
   return [(minX + maxX) / 2 - width / 2, (minY + maxY) / 2 - height / 2, width, height];
 }
 
-/** The parcel's journey on a map of the Philippines. Stops come from Gemini's reading of the scans. */
 export function RouteMap({ stops }: RouteMapProps) {
   const [zoomed, setZoomed] = useState(false);
 

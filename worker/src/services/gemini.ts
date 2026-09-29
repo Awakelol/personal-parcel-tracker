@@ -3,7 +3,6 @@ import type { AiAnalysis, DateRange, JargonTerm, RouteStop, RouteStopRole } from
 import type { Env } from '../env';
 import { philippineToday } from '../lib/estimate';
 
-/** Per model attempt; primary + fallback stay well under a comfortable wait. */
 const REQUEST_TIMEOUT_MS = 12_000;
 
 const SYSTEM_PROMPT = `Act as a logistics expert. Analyze this raw tracking JSON. Return a 2-sentence summary of its current status, explain any jargon, and provide an educated guess on the remaining transit steps.
@@ -69,18 +68,13 @@ const ANALYSIS_SCHEMA = {
   required: ['summary', 'jargon', 'nextSteps', 'estimatedDelivery', 'route'],
 } as const;
 
-/** HTTP statuses where the fallback model is worth trying (overload, quota, outage). */
 const RETRYABLE_STATUSES = new Set([429, 500, 503, 504]);
 
-/** Loose bounding box of the Philippines; stops outside it are discarded. */
+// Rough bounding box of the Philippines.
 const PH_BOUNDS = { minLat: 4, maxLat: 21.5, minLng: 116, maxLng: 127 };
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-/**
- * Asks Gemini to analyse the tracking JSON, falling back to
- * GEMINI_FALLBACK_MODEL when the primary model is overloaded or slow. Throws on failure.
- */
 export async function analyzeTracking(env: Env, trackingData: unknown, now = new Date()): Promise<AiAnalysis> {
   const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
   const prompt = JSON.stringify({
@@ -116,8 +110,7 @@ async function analyzeWithModel(ai: GoogleGenAI, model: string, prompt: string, 
       responseJsonSchema: ANALYSIS_SCHEMA,
       thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
       abortSignal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      // The SDK otherwise retries up to 5 times with exponential backoff,
-      // which silently eats the whole time budget; we fall back instead.
+      // The SDK default (5 retries with backoff) eats the whole timeout; fall back instead.
       httpOptions: { retryOptions: { attempts: 1 } },
     },
   });
@@ -132,8 +125,7 @@ async function analyzeWithModel(ai: GoogleGenAI, model: string, prompt: string, 
     throw new Error('Gemini response did not match the analysis schema.');
   }
 
-  // The summary is essential; the estimate and route are best-effort extras,
-  // so malformed values degrade to "unknown" instead of failing the analysis.
+  // Estimate and route are best effort; don't fail the analysis over them.
   return {
     summary: parsed.summary.trim(),
     jargon: parsed.jargon,
@@ -142,8 +134,6 @@ async function analyzeWithModel(ai: GoogleGenAI, model: string, prompt: string, 
     route: sanitizeRoute(parsed.route),
   };
 }
-
-// --- Validation ---------------------------------------------------------------
 
 type CoreFields = Pick<AiAnalysis, 'summary' | 'jargon' | 'nextSteps'> & {
   estimatedDelivery?: unknown;

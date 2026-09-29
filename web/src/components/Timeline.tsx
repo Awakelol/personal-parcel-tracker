@@ -11,7 +11,7 @@ interface DayGroup {
   events: { event: TrackingEvent; isLatest: boolean }[];
 }
 
-/** The carrier's scans, grouped by day. `events` arrives oldest first. */
+// `events` arrive oldest first.
 export function Timeline({ events }: TimelineProps) {
   const [newestFirst, setNewestFirst] = useState(true);
 

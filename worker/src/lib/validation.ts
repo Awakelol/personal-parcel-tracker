@@ -8,7 +8,6 @@ function invalid(message: string): AppError {
   return new AppError(400, 'INVALID_REQUEST', message);
 }
 
-/** Validates and normalises the POST /api/track body. */
 export function parseTrackRequest(body: unknown): TrackRequest {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) {
     throw invalid('Request body must be a JSON object.');
@@ -20,8 +19,7 @@ export function parseTrackRequest(body: unknown): TrackRequest {
     throw invalid('`trackingNumber` is required and must be a string.');
   }
 
-  // Carriers often print numbers with spaces or dashes; strip them so the
-  // cache key is stable regardless of how the user pasted it.
+  // Numbers are often pasted with spaces or dashes.
   const normalizedNumber = trackingNumber.replace(/[\s-]/g, '').toUpperCase();
   if (!TRACKING_NUMBER_PATTERN.test(normalizedNumber)) {
     throw invalid('`trackingNumber` must be 5-40 letters or digits.');

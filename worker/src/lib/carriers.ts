@@ -19,7 +19,6 @@ export type TrackingRoute =
   | { provider: 'spx' }
   | { provider: '17track'; carrierId: number | undefined };
 
-/** Decides which upstream serves a request: SPX directly, or 17TRACK for everything else. */
 export function resolveRoute({ trackingNumber, courierCode }: TrackRequest): TrackingRoute {
   if (courierCode === 'spx-ph') return { provider: 'spx' };
 
@@ -40,7 +39,6 @@ export function resolveRoute({ trackingNumber, courierCode }: TrackRequest): Tra
   throw new AppError(400, 'INVALID_REQUEST', `Unknown courier code "${courierCode}".`);
 }
 
-/** Maps a 17TRACK carrier ID back to our courier code, or its numeric string. */
 export function courierCodeFor17TrackId(carrierId: number): string {
   const match = COURIERS.find((c) => SEVENTEENTRACK_CARRIER_IDS[c.code] === carrierId);
   return match?.code ?? String(carrierId);

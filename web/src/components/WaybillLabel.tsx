@@ -7,7 +7,6 @@ interface WaybillLabelProps {
   result: TrackResponse;
 }
 
-/** The parcel's identity, printed like a thermal shipping label. */
 export function WaybillLabel({ result }: WaybillLabelProps) {
   const latest = result.events.at(-1);
   const isAlert = ALERT_STATUSES.has(result.status);

@@ -5,7 +5,6 @@ import type { TrackRequest } from '@shared/api';
 import type { RecentSearch } from '../hooks/useRecentSearches';
 
 interface SearchBarProps {
-  /** Pre-fills the form on first render (from the URL). */
   initial: TrackRequest | null;
   isLoading: boolean;
   recent: RecentSearch[];

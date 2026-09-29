@@ -1,9 +1,5 @@
 @import 'tailwindcss';
 
-/*
- * Tokens. The page is the parcel box (kraft); results are printed on label
- * paper, which stays light in both themes like a real label would.
- */
 @theme {
   --color-kraft: #c8a171;
   --color-kraft-edge: #a9824f;
@@ -15,7 +11,7 @@
   --color-sticker: #f5c518;
   --color-alert: #b42318;
 
-  /* Text/controls sitting directly on the page (flip in dark mode). */
+  /* Text directly on the page background */
   --color-on-page: #1a1712;
   --color-on-page-muted: #4a3b27;
 
@@ -37,7 +33,6 @@
     @apply bg-kraft font-sans text-on-page antialiased;
   }
 
-  /* Condensed Archivo for label-style display text. */
   .font-condensed {
     font-stretch: 68%;
   }
@@ -52,7 +47,6 @@
   }
 }
 
-/* The label "prints" out of the top edge, once, when a result arrives. */
 @keyframes print-out {
   from {
     clip-path: inset(0 0 100% 0);

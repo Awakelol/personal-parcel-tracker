@@ -7,10 +7,7 @@ const CACHE_VERSION = 'v3';
 
 export const CACHE_TTL_SECONDS = 60 * 60;
 
-/**
- * Shorter TTL for partial results, so a transient Gemini outage or a freshly
- * registered number with no carrier events yet isn't pinned for an hour.
- */
+// Partial results (no summary, or no scans yet) expire sooner.
 export const PARTIAL_CACHE_TTL_SECONDS = 5 * 60;
 
 export function cacheTtlFor(result: TrackResult): number {
@@ -18,18 +15,13 @@ export function cacheTtlFor(result: TrackResult): number {
   return isComplete ? CACHE_TTL_SECONDS : PARTIAL_CACHE_TTL_SECONDS;
 }
 
-/**
- * Keyed by where the lookup actually goes, so equivalent requests (an SPX
- * number with or without `spx-ph`, `jnt-ph` vs `100240`) share one entry and
- * one Gemini analysis.
- */
+// Key on the resolved source so e.g. `jnt-ph` and `100240` share an entry.
 export function cacheKey(request: TrackRequest): string {
   const route = resolveRoute(request);
   const source = route.provider === 'spx' ? 'spx' : `17track-${route.carrierId ?? 'auto'}`;
   return `track:${CACHE_VERSION}:${source}:${request.trackingNumber}`;
 }
 
-/** Returns the cached result, or `null` on a miss or KV failure. */
 export async function readCachedResult(
   kv: KVNamespace,
   key: string,

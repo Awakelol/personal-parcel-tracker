@@ -6,9 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 [observability]
 enabled = true
 
-# The dashboard (web/) is built before every `wrangler dev`/`wrangler deploy`
-# (including Workers Builds) and served from this Worker. Only /api/* runs the
-# Worker code; every other path is a static file or falls back to index.html.
+# Build the dashboard and serve it; only /api/* runs the Worker.
 [build]
 command = "npm --prefix ../web install --no-audit --no-fund && npm --prefix ../web run build"
 
@@ -17,19 +15,18 @@ directory = "../web/dist"
 not_found_handling = "single-page-application"
 run_worker_first = ["/api/*"]
 
-# Caches the combined tracking + Gemini result per tracking number (1h TTL).
-# No `id` on purpose: `wrangler deploy` (including Workers Builds) provisions
-# the namespace automatically on first deploy, and `wrangler dev` uses a local one.
+# KV namespaces are created automatically on first deploy.
 [[kv_namespaces]]
 binding = "TRACKING_CACHE"
 
+[[kv_namespaces]]
+binding = "USER_DATA"
+
 [vars]
-# Comma-separated origins allowed to call /api/* (Vite dev server by default).
-ALLOWED_ORIGIN = "http://localhost:5173"
 GEMINI_MODEL = "gemini-3.5-flash"
 GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite"
+# From the Cloudflare Access application in front of this Worker.
+ACCESS_TEAM_DOMAIN = ""
+ACCESS_AUD = ""
 
-# Secrets — never commit these. Set them with:
-#   npx wrangler secret put GEMINI_API_KEY
-#   npx wrangler secret put SEVENTEENTRACK_API_KEY
-# For local dev, copy .dev.vars.example to .dev.vars and fill in the values.
+# Secrets: GEMINI_API_KEY, SEVENTEENTRACK_API_KEY (wrangler secret put / .dev.vars)

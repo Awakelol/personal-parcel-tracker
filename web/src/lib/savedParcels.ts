@@ -1,15 +1,12 @@
 import { useSyncExternalStore } from 'react';
-import type { EstimatedDelivery, ParcelStatus, TrackResponse, TrackingEvent } from '@shared/api';
+import type { EstimatedDelivery, ParcelStatus, SavedParcel, TrackResult, TrackingEvent } from '@shared/api';
+import { ApiError, deleteParcel, listParcels, putParcel } from './api';
 
-/**
- * Saved parcels live in this browser's localStorage: the site is public, so a
- * server-side list would be readable by anyone. Everything goes through this
- * module, so swapping in synced storage later only touches this file.
- */
-const STORAGE_KEY = 'parcel-tracker:saved';
 export const MAX_NAME_LENGTH = 60;
 
-/** The last lookup, kept so the saved list renders instantly before refreshing. */
+// Parcels saved before accounts existed get moved to the account.
+const LEGACY_STORAGE_KEY = 'parcel-tracker:saved';
+
 export interface SavedSnapshot {
   status: ParcelStatus;
   courierName: string | null;
@@ -18,63 +15,30 @@ export interface SavedSnapshot {
   fetchedAt: string;
 }
 
-export interface SavedParcel {
-  trackingNumber: string;
-  courierCode?: string;
-  name: string;
-  savedAt: string;
+export interface SavedParcelView extends SavedParcel {
   last?: SavedSnapshot;
 }
 
-type Listener = () => void;
-const listeners = new Set<Listener>();
-let parcels: SavedParcel[] = read();
-
-function read(): SavedParcel[] {
-  try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');
-    return Array.isArray(parsed)
-      ? parsed.filter((p): p is SavedParcel => typeof p?.trackingNumber === 'string' && typeof p?.name === 'string')
-      : [];
-  } catch {
-    return [];
-  }
+export interface SavedState {
+  status: 'loading' | 'ready' | 'error';
+  parcels: SavedParcelView[];
+  error?: string;
 }
 
-function commit(next: SavedParcel[]): void {
-  parcels = next;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  } catch {
-    // Storage full or blocked: the list still works for this session.
-  }
+let state: SavedState = { status: 'loading', parcels: [] };
+let loading: Promise<void> | null = null;
+const listeners = new Set<() => void>();
+
+function setState(next: SavedState): void {
+  state = next;
   listeners.forEach((listener) => listener());
 }
 
-function subscribe(listener: Listener): () => void {
-  listeners.add(listener);
-  // Keep other open tabs in sync.
-  const onStorage = (event: StorageEvent) => {
-    if (event.key !== STORAGE_KEY) return;
-    parcels = read();
-    listener();
-  };
-  window.addEventListener('storage', onStorage);
-  return () => {
-    listeners.delete(listener);
-    window.removeEventListener('storage', onStorage);
-  };
+function setParcels(parcels: SavedParcelView[]): void {
+  setState({ ...state, parcels });
 }
 
-export function useSavedParcels(): SavedParcel[] {
-  return useSyncExternalStore(subscribe, () => parcels);
-}
-
-export function findSaved(trackingNumber: string): SavedParcel | undefined {
-  return parcels.find((p) => p.trackingNumber === trackingNumber);
-}
-
-export function snapshotOf(result: TrackResponse): SavedSnapshot {
+export function snapshotOf(result: TrackResult): SavedSnapshot {
   return {
     status: result.status,
     courierName: result.courierName,
@@ -84,29 +48,94 @@ export function snapshotOf(result: TrackResponse): SavedSnapshot {
   };
 }
 
-export function saveParcel(result: TrackResponse, name: string, courierCode?: string): void {
-  const entry: SavedParcel = {
+async function importLegacyParcels(): Promise<void> {
+  let legacy: SavedParcel[] = [];
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY) ?? '[]');
+    if (Array.isArray(parsed)) legacy = parsed as SavedParcel[];
+  } catch {
+    return;
+  }
+  if (legacy.length === 0) return;
+
+  for (const parcel of legacy) {
+    await putParcel(parcel.trackingNumber, { name: parcel.name, courierCode: parcel.courierCode });
+  }
+  localStorage.removeItem(LEGACY_STORAGE_KEY);
+}
+
+export function loadSavedParcels(): Promise<void> {
+  loading ??= (async () => {
+    try {
+      await importLegacyParcels();
+      const parcels = await listParcels();
+      setState({
+        status: 'ready',
+        parcels: parcels.map(({ latest, ...parcel }) => ({ ...parcel, ...(latest && { last: snapshotOf(latest) }) })),
+      });
+    } catch (err) {
+      loading = null;
+      setState({ ...state, status: 'error', error: err instanceof ApiError ? err.message : 'Could not load saved parcels.' });
+    }
+  })();
+  return loading;
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+export function useSavedParcels(): SavedState {
+  return useSyncExternalStore(subscribe, () => state);
+}
+
+async function optimistic(next: SavedParcelView[], commit: () => Promise<unknown>): Promise<void> {
+  const previous = state.parcels;
+  setParcels(next);
+  try {
+    await commit();
+  } catch (err) {
+    setParcels(previous);
+    throw err;
+  }
+}
+
+export function saveParcel(result: TrackResult, name: string, courierCode?: string): Promise<void> {
+  const parcel: SavedParcelView = {
     trackingNumber: result.trackingNumber,
     ...(courierCode && { courierCode }),
     name: name.trim().slice(0, MAX_NAME_LENGTH),
     savedAt: new Date().toISOString(),
     last: snapshotOf(result),
   };
-  commit([entry, ...parcels.filter((p) => p.trackingNumber !== result.trackingNumber)]);
+  return optimistic(
+    [parcel, ...state.parcels.filter((p) => p.trackingNumber !== parcel.trackingNumber)],
+    () => putParcel(parcel.trackingNumber, { name: parcel.name, courierCode }),
+  );
 }
 
-export function renameParcel(trackingNumber: string, name: string): void {
+export function renameParcel(trackingNumber: string, name: string): Promise<void> {
+  const parcel = state.parcels.find((p) => p.trackingNumber === trackingNumber);
   const trimmed = name.trim().slice(0, MAX_NAME_LENGTH);
-  if (!trimmed) return;
-  commit(parcels.map((p) => (p.trackingNumber === trackingNumber ? { ...p, name: trimmed } : p)));
+  if (!parcel || !trimmed) return Promise.resolve();
+  return optimistic(
+    state.parcels.map((p) => (p.trackingNumber === trackingNumber ? { ...p, name: trimmed } : p)),
+    () => putParcel(trackingNumber, { name: trimmed, courierCode: parcel.courierCode }),
+  );
 }
 
-export function removeParcel(trackingNumber: string): void {
-  commit(parcels.filter((p) => p.trackingNumber !== trackingNumber));
+export function removeParcel(trackingNumber: string): Promise<void> {
+  return optimistic(
+    state.parcels.filter((p) => p.trackingNumber !== trackingNumber),
+    () => deleteParcel(trackingNumber),
+  );
 }
 
-/** Records a fresh lookup for a saved parcel; no-op for parcels that aren't saved. */
-export function updateSnapshot(result: TrackResponse): void {
-  if (!findSaved(result.trackingNumber)) return;
-  commit(parcels.map((p) => (p.trackingNumber === result.trackingNumber ? { ...p, last: snapshotOf(result) } : p)));
+// Local only; the server reads its own cache.
+export function updateSnapshot(result: TrackResult): void {
+  if (!state.parcels.some((p) => p.trackingNumber === result.trackingNumber)) return;
+  setParcels(
+    state.parcels.map((p) => (p.trackingNumber === result.trackingNumber ? { ...p, last: snapshotOf(result) } : p)),
+  );
 }

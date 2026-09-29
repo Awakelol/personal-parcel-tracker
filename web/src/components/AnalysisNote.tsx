@@ -4,10 +4,6 @@ interface AnalysisNoteProps {
   result: TrackResponse;
 }
 
-/**
- * Gemini's reading of the scans, styled as a handling note stuck on the box
- * so it's clearly separate from the carrier's own data.
- */
 export function AnalysisNote({ result }: AnalysisNoteProps) {
   const { analysis } = result;
 

@@ -1,20 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { TrackResponse } from '@shared/api';
+import { ApiError } from '../lib/api';
 import { navigate } from '../lib/router';
 import { MAX_NAME_LENGTH, removeParcel, renameParcel, saveParcel, useSavedParcels } from '../lib/savedParcels';
 
 interface SaveParcelBarProps {
   result: TrackResponse;
-  /** The courier the user asked for, reused when the saved list refreshes. */
   courierCode?: string;
 }
 
-/** Save/rename/remove for the parcel on screen. Saved parcels show their name as the page heading. */
 export function SaveParcelBar({ result, courierCode }: SaveParcelBarProps) {
-  const saved = useSavedParcels().find((p) => p.trackingNumber === result.trackingNumber);
+  const { parcels } = useSavedParcels();
+  const saved = parcels.find((p) => p.trackingNumber === result.trackingNumber);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -23,16 +24,32 @@ export function SaveParcelBar({ result, courierCode }: SaveParcelBarProps) {
 
   function startEditing() {
     setName(saved?.name ?? '');
+    setError(null);
     setEditing(true);
+  }
+
+  async function run(action: () => Promise<void>) {
+    setError(null);
+    try {
+      await action();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'That didn’t work. Try again.');
+    }
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!name.trim()) return;
-    if (saved) renameParcel(result.trackingNumber, name);
-    else saveParcel(result, name, courierCode ?? (result.courierCode !== 'unknown' ? result.courierCode : undefined));
     setEditing(false);
+    const courier = courierCode ?? (result.courierCode !== 'unknown' ? result.courierCode : undefined);
+    void run(() => (saved ? renameParcel(result.trackingNumber, name) : saveParcel(result, name, courier)));
   }
+
+  const errorMessage = error && (
+    <p role="alert" className="mt-2 text-sm font-semibold">
+      {error}
+    </p>
+  );
 
   if (editing) {
     return (
@@ -67,32 +84,38 @@ export function SaveParcelBar({ result, courierCode }: SaveParcelBarProps) {
 
   if (!saved) {
     return (
-      <button
-        type="button"
-        onClick={startEditing}
-        className="font-condensed rounded-sm border-2 border-on-page px-4 py-2 font-extrabold uppercase tracking-wider hover:bg-on-page hover:text-kraft"
-      >
-        + Save parcel
-      </button>
+      <div>
+        <button
+          type="button"
+          onClick={startEditing}
+          className="font-condensed rounded-sm border-2 border-on-page px-4 py-2 font-extrabold uppercase tracking-wider hover:bg-on-page hover:text-kraft"
+        >
+          + Save parcel
+        </button>
+        {errorMessage}
+      </div>
     );
   }
 
   return (
-    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-      <h2 className="font-condensed text-3xl leading-none font-black uppercase tracking-tight break-words sm:text-4xl">
-        {saved.name}
-      </h2>
-      <p className="flex gap-3 text-sm font-semibold">
-        <a href="/saved" onClick={(e) => (e.preventDefault(), navigate('/saved'))} className="underline">
-          Saved
-        </a>
-        <button type="button" onClick={startEditing} className="underline">
-          Rename
-        </button>
-        <button type="button" onClick={() => removeParcel(saved.trackingNumber)} className="underline">
-          Remove
-        </button>
-      </p>
+    <div>
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <h2 className="font-condensed text-3xl leading-none font-black uppercase tracking-tight break-words sm:text-4xl">
+          {saved.name}
+        </h2>
+        <p className="flex gap-3 text-sm font-semibold">
+          <a href="/saved" onClick={(e) => (e.preventDefault(), navigate('/saved'))} className="underline">
+            Saved
+          </a>
+          <button type="button" onClick={startEditing} className="underline">
+            Rename
+          </button>
+          <button type="button" onClick={() => void run(() => removeParcel(saved.trackingNumber))} className="underline">
+            Remove
+          </button>
+        </p>
+      </div>
+      {errorMessage}
     </div>
   );
 }

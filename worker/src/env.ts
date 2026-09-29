@@ -1,18 +1,26 @@
 export interface Env {
-  /** Caches TrackResult JSON per tracking number. */
   TRACKING_CACHE: KVNamespace;
-  /** Comma-separated list of origins allowed to call the API. */
-  ALLOWED_ORIGIN: string;
-  /** Gemini model ID used for tracking analysis. */
+  USER_DATA: KVNamespace;
   GEMINI_MODEL: string;
-  /** Model tried when GEMINI_MODEL is overloaded or rate-limited. */
   GEMINI_FALLBACK_MODEL: string;
-  /** Secret: set via `wrangler secret put` or `.dev.vars`. */
+  /** e.g. https://yourteam.cloudflareaccess.com */
+  ACCESS_TEAM_DOMAIN: string;
+  ACCESS_AUD: string;
+
+  // Secrets
   GEMINI_API_KEY: string;
-  /** Secret: set via `wrangler secret put` or `.dev.vars`. */
   SEVENTEENTRACK_API_KEY: string;
+  /** Local dev only: skip Access and act as this user. */
+  DEV_USER_EMAIL?: string;
+}
+
+export interface User {
+  /** sha256 of the lowercased email */
+  id: string;
+  email: string;
 }
 
 export interface AppBindings {
   Bindings: Env;
+  Variables: { user: User };
 }

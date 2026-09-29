@@ -1,92 +1,88 @@
 # Parcel Tracker
 
-Personal multi-carrier parcel tracking dashboard.
+A small dashboard for tracking parcels from Philippine couriers (SPX, J&T, Ninja Van,
+Flash and anything else 17TRACK supports). It shows the scan history, a plain-English
+summary from Gemini, an estimated arrival date and the route on a map, and lets you
+save parcels to your account.
 
-| Path      | What                                                        |
-| --------- | ----------------------------------------------------------- |
-| `worker/` | Cloudflare Worker API (Hono) — SPX/17TRACK + Gemini + KV    |
-| `web/`    | Vite + React + Tailwind dashboard, served by the Worker     |
-| `shared/` | TypeScript API contract imported by both                    |
+```text
+worker/   Cloudflare Worker (Hono): API, auth, caching; also serves the built dashboard
+web/      Vite + React + Tailwind dashboard
+shared/   Types shared by both
+```
 
-One Worker serves everything: `/api/*` runs the API, every other path serves the
-dashboard built from `web/` (wrangler builds it automatically before `dev` and
-`deploy`, via `[build]` in `wrangler.toml`).
+## Running locally
 
-Dashboard features:
-
-- **Track** (`/?n=<number>&c=<courier>`): Gemini summary, printed-label card with
-  estimated arrival, route map of the Philippines, and scan history.
-- **Saved parcels** (`/saved`): parcels you saved with a name, their latest scan and
-  estimated arrival, refreshed when the page opens. Stored in the browser's
-  localStorage only (the site has no login, so nothing personal is kept server-side).
-- **Estimated arrival** prefers the courier's own estimate (17TRACK) and otherwise
-  uses Gemini's estimate from the scan history.
-- **Route map**: Gemini extracts the places in the scans (hub codes → cities) with
-  approximate coordinates; the Worker drops anything outside the Philippines. The
-  outline comes from Natural Earth (public domain) and is pre-generated into
-  `web/src/lib/phMap.ts` by `node web/scripts/build-ph-map.mjs`.
-
-## Local development
-
-Requires Node.js 20+.
+Needs Node 20+.
 
 ```sh
 cd worker
 npm install
-cp .dev.vars.example .dev.vars          # fill in your API keys
-npm run dev                             # dashboard + API on http://localhost:8787
+cp .dev.vars.example .dev.vars    # add your Gemini and 17TRACK keys
+npm run dev                       # http://localhost:8787
 ```
 
-For hot-reloading UI work, keep the Worker running and start Vite alongside it:
+Locally you're logged in as `DEV_USER_EMAIL` from `.dev.vars`; Cloudflare Access is
+only used in production. For UI work with hot reload, also run `npm run dev` in `web/`
+(port 5173, proxies `/api` to the worker).
 
-```sh
-cd web
-npm run dev                             # http://localhost:5173, proxies /api to :8787
-```
+## Deploying
 
-## Deploy
-
-Pushes to `main` deploy automatically via Workers Builds (root directory `worker`).
-The `TRACKING_CACHE` KV namespace is provisioned on first deploy. To deploy by hand:
+Pushes to `main` deploy through Workers Builds (root directory: `worker`). The web
+app is built as part of `wrangler deploy`, and the KV namespaces are created on the
+first deploy. Secrets live in the Worker's settings:
 
 ```sh
 npx wrangler secret put GEMINI_API_KEY
 npx wrangler secret put SEVENTEENTRACK_API_KEY
-npm run deploy
 ```
+
+### Login (Cloudflare Access)
+
+The whole site sits behind Cloudflare Access with one-time email codes, and the
+Worker verifies the Access token on every API call. To set it up:
+
+1. Workers & Pages → the Worker → **Access** tab → *Protect this Worker behind Access*
+   → *All traffic* → *Apply Access*.
+2. Zero Trust → Access controls → Applications → the Worker's application → Policies:
+   set the policy to *Allow*, include *Everyone*, with **One-time PIN** as the login method.
+3. Copy the application's **Application Audience (AUD) Tag**, and your team domain from
+   Zero Trust → Settings (`https://<team>.cloudflareaccess.com`), into `ACCESS_AUD` and
+   `ACCESS_TEAM_DOMAIN` in `worker/wrangler.toml`.
+
+The Worker checks the `Cf-Access-Jwt-Assertion` header itself (`ctx.access` isn't
+passed to Workers that serve static assets).
+
+Saved parcels are stored per account in KV, keyed by a hash of the email address.
 
 ## API
 
-`POST /api/track`
+All routes except `/api/health` need a logged-in user.
 
-```sh
-curl -X POST http://localhost:8787/api/track \
-  -H "Content-Type: application/json" \
-  -d '{"trackingNumber":"P1234ABCD5678","courierCode":"flash-ph"}'
-```
+| Route | |
+| --- | --- |
+| `POST /api/track` | `{ trackingNumber, courierCode? }` → `TrackResponse` |
+| `GET /api/me` | current account |
+| `GET /api/parcels` | saved parcels, with their latest cached result |
+| `PUT /api/parcels/:number` | save or rename: `{ name, courierCode? }` |
+| `DELETE /api/parcels/:number` | remove |
 
-`courierCode` is optional: `spx-ph`, `jnt-ph`, `ninjavan-ph`, `flash-ph`, or any
-numeric [17TRACK carrier ID](https://res.17track.net/asset/carrier/info/apicarrier.all.json).
-When omitted, `SPXPH…` numbers go to SPX and everything else is auto-detected by
-17TRACK. The response shape is `TrackResponse` in [`shared/api.ts`](shared/api.ts):
-normalised status, a chronological event timeline, and Gemini's `analysis`
-(summary, jargon, next steps).
+`courierCode` can be `spx-ph`, `jnt-ph`, `ninjavan-ph`, `flash-ph`, or any numeric
+[17TRACK carrier id](https://res.17track.net/asset/carrier/info/apicarrier.all.json).
+Without it, SPX numbers go straight to SPX and everything else is detected by 17TRACK.
+Types are in [`shared/api.ts`](shared/api.ts).
 
-### Tracking sources (free)
+## Notes
 
-| Source | Used for | Limits |
-| ------ | -------- | ------ |
-| SPX public endpoint | SPX Express PH | Undocumented; may change or block. Falls back to 17TRACK on errors. |
-| [17TRACK API](https://api.17track.net/en/doc) | Everything else | One-time 200 registrations; re-checking a registered number is free. 3 req/s. Keep the IP allow-list empty. |
-
-Results are cached in KV for 1 hour per tracking number (`cached: true` on a hit).
-Partial results — Gemini failed, or the carrier has no events yet — are cached
-for 5 minutes instead.
-
-### Configuration (`worker/wrangler.toml` `[vars]`)
-
-| Var                     | Default                 | Purpose                                      |
-| ----------------------- | ----------------------- | -------------------------------------------- |
-| `ALLOWED_ORIGIN`        | `http://localhost:5173` | Comma-separated CORS origins                 |
-| `GEMINI_MODEL`          | `gemini-3.5-flash`      | Primary analysis model                       |
-| `GEMINI_FALLBACK_MODEL` | `gemini-3.5-flash-lite` | Used when the primary returns 429/5xx        |
+- **Tracking sources.** SPX's public tracking endpoint is undocumented and could
+  change; if it fails, the worker falls back to 17TRACK. 17TRACK's free tier is a
+  one-time 200 registrations (re-checking a registered number is free), 3 req/s,
+  and its IP allow-list must stay empty.
+- **Caching.** Results are cached for an hour per parcel, or 5 minutes when the
+  summary failed or there are no scans yet.
+- **Gemini.** `GEMINI_MODEL` falls back to `GEMINI_FALLBACK_MODEL` on timeouts,
+  429s and 5xx errors. Arrival estimates come from the courier when 17TRACK has one,
+  otherwise from Gemini.
+- **Map.** The outline is Natural Earth data (public domain), pre-generated into
+  `web/src/lib/phMap.ts` by `node web/scripts/build-ph-map.mjs`. Route stops come
+  from Gemini, so positions are approximate.

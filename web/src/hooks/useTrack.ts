@@ -1,14 +1,13 @@
 import { useCallback, useRef, useState } from 'react';
 import type { TrackRequest, TrackResponse } from '@shared/api';
-import { TrackError, trackParcel } from '../lib/api';
+import { ApiError, trackParcel } from '../lib/api';
 
 export type TrackState =
   | { status: 'idle' }
   | { status: 'loading'; request: TrackRequest }
   | { status: 'success'; request: TrackRequest; result: TrackResponse }
-  | { status: 'error'; request: TrackRequest; error: TrackError };
+  | { status: 'error'; request: TrackRequest; error: ApiError };
 
-/** Runs one lookup at a time; a new search cancels the one in flight. */
 export function useTrack() {
   const [state, setState] = useState<TrackState>({ status: 'idle' });
   const inFlight = useRef<AbortController | null>(null);
@@ -26,7 +25,7 @@ export function useTrack() {
     } catch (err) {
       if (controller.signal.aborted) return null;
       const error =
-        err instanceof TrackError ? err : new TrackError('INTERNAL_ERROR', 'Tracking failed unexpectedly. Try again.');
+        err instanceof ApiError ? err : new ApiError('INTERNAL_ERROR', 'Tracking failed unexpectedly. Try again.');
       setState({ status: 'error', request, error });
       return null;
     }

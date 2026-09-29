@@ -6,15 +6,12 @@ import { fetch17TrackRaw, normalize17Track } from './seventeentrack';
 import { fetchSpxRaw, normalizeSpx } from './spx';
 
 export interface TrackingLookup {
-  /** Normalised timeline returned to the dashboard. */
   snapshot: TrackingSnapshot;
-  /** Delivery window reported by the carrier itself, if any. */
   carrierEstimate: DateRange | null;
-  /** PII-free subset of the upstream's raw JSON, forwarded to Gemini. */
+  /** Raw upstream data minus PII, for Gemini. */
   analysisInput: unknown;
 }
 
-/** Fetches from SPX directly for SPX numbers, and from 17TRACK for everything else. */
 export async function fetchTracking(env: Env, request: TrackRequest): Promise<TrackingLookup> {
   const route = resolveRoute(request);
 
@@ -25,8 +22,7 @@ export async function fetchTracking(env: Env, request: TrackRequest): Promise<Tr
   try {
     return normalizeSpx(request.trackingNumber, await fetchSpxRaw(request.trackingNumber));
   } catch (err) {
-    // SPX's endpoint is unofficial; if it's blocked or down, spend a 17TRACK
-    // quota unit rather than fail. A definitive "not found" is not retried.
+    // The SPX endpoint is unofficial; if it's down, use 17TRACK instead.
     const isTransient =
       err instanceof AppError && (err.code === 'UPSTREAM_ERROR' || err.code === 'RATE_LIMITED');
     if (!isTransient) throw err;

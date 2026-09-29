@@ -5,7 +5,6 @@ interface ArrivalEstimateProps {
   status: ParcelStatus;
   estimate: EstimatedDelivery | null;
   latestEvent: TrackingEvent | null | undefined;
-  /** `lg` on the label, `sm` on saved-parcel cards. */
   size?: 'lg' | 'sm';
 }
 
@@ -14,7 +13,6 @@ const SOURCE_NOTE: Record<EstimatedDelivery['source'], string> = {
   gemini: 'Estimated by Gemini from the scans',
 };
 
-/** "Arrives Oct 1 – 4 · in 2–5 days", or when it was delivered. */
 export function ArrivalEstimate({ status, estimate, latestEvent, size = 'lg' }: ArrivalEstimateProps) {
   const valueClass =
     size === 'lg'

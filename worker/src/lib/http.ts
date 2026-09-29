@@ -7,11 +7,7 @@ export interface JsonResponse {
   body: unknown;
 }
 
-/**
- * fetch() with a timeout that always parses the body as JSON, regardless of
- * HTTP status — both upstreams report errors inside the JSON body.
- * `source` names the upstream in client-facing error messages.
- */
+// Both upstreams report errors in the JSON body, so parse it whatever the status.
 export async function fetchJson(
   url: string,
   init: RequestInit,

@@ -1,11 +1,10 @@
 import { useSyncExternalStore } from 'react';
 
-/** Two pages don't justify a router library: pathname + History API is enough. */
 export type Page = 'track' | 'saved';
 
 export interface Route {
   page: Page;
-  /** Increments on every navigation (links, back/forward) — not on replaceState. */
+  /** Bumped on pushState/popstate, not replaceState. */
   key: number;
 }
 
@@ -38,7 +37,6 @@ export function useRoute(): Route {
   return useSyncExternalStore(subscribe, () => current);
 }
 
-/** URL of the track page for a parcel, e.g. /?n=PH123&c=spx-ph */
 export function trackUrl(trackingNumber: string, courierCode?: string): string {
   const params = new URLSearchParams({ n: trackingNumber });
   if (courierCode) params.set('c', courierCode);
