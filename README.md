@@ -19,10 +19,9 @@ cp .dev.vars.example .dev.vars          # fill in your API keys
 npm run dev                             # http://localhost:8787
 ```
 
-Deploy:
+Deploy (the `TRACKING_CACHE` KV namespace is provisioned automatically on first deploy):
 
 ```sh
-npx wrangler kv namespace create TRACKING_CACHE   # paste id into wrangler.toml
 npx wrangler secret put GEMINI_API_KEY
 npx wrangler secret put SEVENTEENTRACK_API_KEY
 npm run deploy

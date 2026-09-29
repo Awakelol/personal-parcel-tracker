@@ -7,12 +7,10 @@ compatibility_flags = ["nodejs_compat"]
 enabled = true
 
 # Caches the combined tracking + Gemini result per tracking number (1h TTL).
-# Create the namespace with:  npx wrangler kv namespace create TRACKING_CACHE
-# then paste the returned id below. `wrangler dev` uses a local simulated KV,
-# so the placeholder works for local development.
+# No `id` on purpose: `wrangler deploy` (including Workers Builds) provisions
+# the namespace automatically on first deploy, and `wrangler dev` uses a local one.
 [[kv_namespaces]]
 binding = "TRACKING_CACHE"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
 
 [vars]
 # Comma-separated origins allowed to call /api/* (Vite dev server by default).
