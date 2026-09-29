@@ -1,9 +1,11 @@
-import type { EstimatedDelivery, ParcelStatus, TrackingEvent } from '@shared/api';
+import type { DateRange, EstimatedDelivery, ParcelStatus, TrackingEvent } from '@shared/api';
 import { formatArrivalHint, formatDateRange, formatDay } from '../lib/format';
 
 interface ArrivalEstimateProps {
   status: ParcelStatus;
   estimate: EstimatedDelivery | null;
+  courierEstimate: DateRange | null | undefined;
+  courierName: string | null;
   latestEvent: TrackingEvent | null | undefined;
   size?: 'lg' | 'sm';
 }
@@ -13,7 +15,14 @@ const SOURCE_NOTE: Record<EstimatedDelivery['source'], string> = {
   gemini: 'Estimated by Gemini from the scans',
 };
 
-export function ArrivalEstimate({ status, estimate, latestEvent, size = 'lg' }: ArrivalEstimateProps) {
+export function ArrivalEstimate({
+  status,
+  estimate,
+  courierEstimate,
+  courierName,
+  latestEvent,
+  size = 'lg',
+}: ArrivalEstimateProps) {
   const valueClass =
     size === 'lg'
       ? 'font-condensed text-3xl leading-none font-black'
@@ -27,6 +36,15 @@ export function ArrivalEstimate({ status, estimate, latestEvent, size = 'lg' }: 
       </div>
     );
   }
+
+  // The courier's own estimate sits under Gemini's, smaller. When it's already
+  // the main estimate there's nothing to add.
+  const courierLine =
+    estimate?.source === 'carrier'
+      ? null
+      : courierEstimate
+        ? `Courier’s estimate: ${formatDateRange(courierEstimate)}`
+        : `${courierName ?? 'The courier'} hasn’t given an estimate`;
 
   return (
     <div>
@@ -43,6 +61,11 @@ export function ArrivalEstimate({ status, estimate, latestEvent, size = 'lg' }: 
         </>
       ) : (
         <p className="mt-1 text-sm text-ink-muted">No estimate yet</p>
+      )}
+      {courierLine && (estimate || courierEstimate) && (
+        <p className={`text-ink-muted ${size === 'lg' ? 'mt-2 border-t border-dashed border-paper-rule pt-2 text-xs' : 'mt-1 text-[11px]'}`}>
+          {courierLine}
+        </p>
       )}
     </div>
   );

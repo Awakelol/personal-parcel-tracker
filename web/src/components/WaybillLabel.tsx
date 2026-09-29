@@ -38,7 +38,13 @@ export function WaybillLabel({ result }: WaybillLabelProps) {
       </div>
 
       <div className="border-t-2 border-ink px-4 py-3">
-        <ArrivalEstimate status={result.status} estimate={result.estimatedDelivery} latestEvent={latest} />
+        <ArrivalEstimate
+          status={result.status}
+          estimate={result.estimatedDelivery}
+          courierEstimate={result.courierEstimate}
+          courierName={result.courierName}
+          latestEvent={latest}
+        />
       </div>
 
       <dl className="grid grid-cols-2 border-t border-paper-rule text-sm">

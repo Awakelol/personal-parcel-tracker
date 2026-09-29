@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { EstimatedDelivery, ParcelStatus, SavedParcel, TrackResult, TrackingEvent } from '@shared/api';
+import type { DateRange, EstimatedDelivery, ParcelStatus, SavedParcel, TrackResult, TrackingEvent } from '@shared/api';
 import { ApiError, deleteParcel, listParcels, putParcel } from './api';
 
 export const MAX_NAME_LENGTH = 60;
@@ -12,6 +12,7 @@ export interface SavedSnapshot {
   courierName: string | null;
   latestEvent: TrackingEvent | null;
   estimatedDelivery: EstimatedDelivery | null;
+  courierEstimate: DateRange | null;
   fetchedAt: string;
 }
 
@@ -44,6 +45,7 @@ export function snapshotOf(result: TrackResult): SavedSnapshot {
     courierName: result.courierName,
     latestEvent: result.events.at(-1) ?? null,
     estimatedDelivery: result.estimatedDelivery,
+    courierEstimate: result.courierEstimate ?? null,
     fetchedAt: result.fetchedAt,
   };
 }

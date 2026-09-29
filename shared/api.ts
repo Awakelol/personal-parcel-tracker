@@ -99,7 +99,10 @@ export interface TrackResult extends TrackingSnapshot {
   analysis: AiAnalysis | null;
   /** The summary is still being written; fetch it from /api/track/analysis. */
   analysisPending: boolean;
+  /** Gemini's estimate, or the courier's when Gemini has none. */
   estimatedDelivery: EstimatedDelivery | null;
+  /** The courier's own estimate, when it gives one. */
+  courierEstimate: DateRange | null;
   fetchedAt: string;
 }
 

@@ -5,7 +5,7 @@ import type { AppBindings, Env } from '../env';
 import { describeError } from '../errors';
 import { readAnalysis, scansSignature, stashAnalysisInput, takeAnalysisInput, writeAnalysis } from '../lib/analysisCache';
 import { cacheKey, cacheTtlFor, readCachedResult, writeCachedResult } from '../lib/cache';
-import { philippineToday, resolveEstimatedDelivery } from '../lib/estimate';
+import { philippineToday, resolveEstimates } from '../lib/estimate';
 import { readJsonBody } from '../lib/request';
 import { parseTrackRequest } from '../lib/validation';
 import { analyzeTracking } from '../services/gemini';
@@ -43,7 +43,7 @@ trackRoute.post('/', async (c) => {
     ...snapshot,
     analysis,
     analysisPending,
-    estimatedDelivery: resolveEstimatedDelivery(snapshot.status, carrierEstimate, analysis, philippineToday()),
+    ...resolveEstimates(snapshot.status, carrierEstimate, analysis, philippineToday()),
     fetchedAt: new Date().toISOString(),
   };
   store(c, key, result);
@@ -66,12 +66,11 @@ trackRoute.post('/analysis', async (c) => {
     analysis = await generateAnalysis(c.env, key, signature, input);
   }
 
-  const carrierEstimate = cached.estimatedDelivery?.source === 'carrier' ? cached.estimatedDelivery : null;
   const result: TrackResult = {
     ...cached,
     analysis,
     analysisPending: false,
-    estimatedDelivery: resolveEstimatedDelivery(cached.status, carrierEstimate, analysis, philippineToday()),
+    ...resolveEstimates(cached.status, cached.courierEstimate ?? null, analysis, philippineToday()),
   };
   store(c, key, result);
   return respond(c, result, false);
@@ -89,7 +88,7 @@ async function lookUpNow(c: Ctx, request: TrackRequest, key: string): Promise<Tr
     ...snapshot,
     analysis,
     analysisPending: false,
-    estimatedDelivery: resolveEstimatedDelivery(snapshot.status, carrierEstimate, analysis, philippineToday()),
+    ...resolveEstimates(snapshot.status, carrierEstimate, analysis, philippineToday()),
     fetchedAt: new Date().toISOString(),
   };
   store(c, key, result);

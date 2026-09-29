@@ -3,7 +3,7 @@ import { describeError } from '../errors';
 import { resolveRoute } from './carriers';
 
 /** Bump when the TrackResult shape changes so stale entries are ignored. */
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 
 export const CACHE_TTL_SECONDS = 60 * 60;
 

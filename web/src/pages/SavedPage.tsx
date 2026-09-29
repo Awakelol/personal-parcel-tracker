@@ -247,7 +247,14 @@ function SavedParcelCard({ parcel, refresh }: { parcel: SavedParcelView; refresh
           )}
         </div>
         {last && (
-          <ArrivalEstimate status={last.status} estimate={last.estimatedDelivery} latestEvent={last.latestEvent} size="sm" />
+          <ArrivalEstimate
+            status={last.status}
+            estimate={last.estimatedDelivery}
+            courierEstimate={last.courierEstimate}
+            courierName={last.courierName}
+            latestEvent={last.latestEvent}
+            size="sm"
+          />
         )}
       </div>
 
