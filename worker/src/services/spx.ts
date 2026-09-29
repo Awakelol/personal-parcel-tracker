@@ -14,7 +14,14 @@ const SPX_TRACKING_URL = 'https://spx.ph/shipment/order/open/order/get_order_inf
 /** Appears in `message` when SPX has no order for the number. */
 const SPX_NOT_FOUND_CODE = '-2023002';
 
+/**
+ * The response also carries receiver_name, full_address, lat/lng and an ePOD
+ * photo URL. Those are PII and deliberately not declared here, so nothing
+ * downstream can read them by accident.
+ */
 export interface SpxRecord {
+  /** 0 = internal record that spx.ph hides from buyers (e.g. "SLSTN Created"). */
+  display_flag?: number | null;
   actual_time?: number | string | null;
   buyer_description?: string | null;
   description?: string | null;
@@ -60,7 +67,7 @@ export async function fetchSpxRaw(trackingNumber: string): Promise<SpxResponse> 
 }
 
 export function normalizeSpx(trackingNumber: string, raw: SpxResponse): TrackingLookup {
-  const records = raw.data?.sls_tracking_info?.records ?? [];
+  const records = (raw.data?.sls_tracking_info?.records ?? []).filter((r) => r.display_flag !== 0);
   const events = records
     .map(toTrackingEvent)
     .filter((e): e is TrackingEvent => e !== null)
@@ -85,7 +92,6 @@ export function normalizeSpx(trackingNumber: string, raw: SpxResponse): Tracking
       records: records.map((r) => ({
         time: toIsoTime(r.actual_time),
         milestone: r.milestone_name ?? null,
-        tracking_code: r.tracking_code ?? null,
         description: r.buyer_description ?? r.description ?? null,
         location: locationName(r.current_location),
       })),

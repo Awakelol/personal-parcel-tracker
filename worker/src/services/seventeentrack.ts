@@ -272,10 +272,20 @@ function eventLocation(event: StEvent): string | null {
   return [city, state, country].filter(Boolean).join(', ') || null;
 }
 
+/** Some carriers (e.g. Flash PH) append the location as ",【Province】,【City】". */
+const BRACKETED_LOCATION = /,?\s*【([^】]+)】/g;
+
 function toTrackingEvent(event: StEvent): TrackingEvent {
+  const rawDescription = event.description ?? '';
+  const bracketed = [...rawDescription.matchAll(BRACKETED_LOCATION)].map((m) => m[1]!.trim());
+  const description = bracketed.length
+    ? rawDescription.replace(BRACKETED_LOCATION, '').trim()
+    : rawDescription;
+
   return {
     timestamp: event.time_iso ?? event.time_utc ?? '',
-    description: event.description ?? '',
-    location: eventLocation(event),
+    description,
+    // Most specific first: "Navotas City, Metro Manila".
+    location: eventLocation(event) ?? (bracketed.length ? bracketed.reverse().join(', ') : null),
   };
 }
