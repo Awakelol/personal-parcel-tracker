@@ -26,7 +26,7 @@ binding = "USER_DATA"
 GEMINI_MODEL = "gemini-3.5-flash"
 GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite"
 # From the Cloudflare Access application in front of this Worker.
-ACCESS_TEAM_DOMAIN = ""
-ACCESS_AUD = ""
+ACCESS_TEAM_DOMAIN = "https://yourteam.cloudflareaccess.com"
+ACCESS_AUD = "your-access-aud-tag"
 
 # Secrets: GEMINI_API_KEY, SEVENTEENTRACK_API_KEY (wrangler secret put / .dev.vars)
