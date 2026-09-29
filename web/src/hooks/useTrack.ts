@@ -12,18 +12,19 @@ export function useTrack() {
   const [state, setState] = useState<TrackState>({ status: 'idle' });
   const inFlight = useRef<AbortController | null>(null);
 
-  const track = useCallback(async (request: TrackRequest): Promise<TrackResponse | null> => {
+  // `silent` refreshes in the background: no loading state, errors ignored.
+  const track = useCallback(async (request: TrackRequest, { silent = false } = {}): Promise<TrackResponse | null> => {
     inFlight.current?.abort();
     const controller = new AbortController();
     inFlight.current = controller;
 
-    setState({ status: 'loading', request });
+    if (!silent) setState({ status: 'loading', request });
     try {
       const result = await trackParcel(request, controller.signal);
       setState({ status: 'success', request, result });
       return result;
     } catch (err) {
-      if (controller.signal.aborted) return null;
+      if (controller.signal.aborted || silent) return null;
       const error =
         err instanceof ApiError ? err : new ApiError('INTERNAL_ERROR', 'Tracking failed unexpectedly. Try again.');
       setState({ status: 'error', request, error });

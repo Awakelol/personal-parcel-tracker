@@ -83,17 +83,31 @@ export async function analyzeTracking(env: Env, trackingData: unknown, now = new
     tracking: trackingData,
   });
 
-  try {
-    return await analyzeWithModel(ai, env.GEMINI_MODEL, prompt, now);
-  } catch (err) {
-    const isRetryable = (err instanceof ApiError && RETRYABLE_STATUSES.has(err.status)) || isTimeout(err);
-    const canFallBack = isRetryable && env.GEMINI_FALLBACK_MODEL && env.GEMINI_FALLBACK_MODEL !== env.GEMINI_MODEL;
-    if (!canFallBack) throw err;
+  // A quick "busy" answer is usually momentary, so give the main model a
+  // second try before falling back. A timeout goes straight to the fallback.
+  const attempts = [env.GEMINI_MODEL, env.GEMINI_MODEL, env.GEMINI_FALLBACK_MODEL].filter(Boolean);
+  let lastError: unknown;
 
-    const reason = err instanceof ApiError ? `returned ${err.status}` : 'timed out';
-    console.warn(`Gemini ${env.GEMINI_MODEL} ${reason}; retrying with ${env.GEMINI_FALLBACK_MODEL}.`);
-    return analyzeWithModel(ai, env.GEMINI_FALLBACK_MODEL, prompt, now);
+  for (let i = 0; i < attempts.length; i++) {
+    const model = attempts[i]!;
+    if (i === 1 && isTimeout(lastError)) continue;
+    if (i === 2 && model === env.GEMINI_MODEL) break;
+    if (i === 1) await new Promise((resolve) => setTimeout(resolve, 1_000));
+
+    try {
+      return await analyzeWithModel(ai, model, prompt, now);
+    } catch (err) {
+      lastError = err;
+      const retryable = (err instanceof ApiError && RETRYABLE_STATUSES.has(err.status)) || isTimeout(err);
+      console.warn(`Gemini ${model} failed: ${err instanceof ApiError ? err.status : describe(err)}`);
+      if (!retryable) break;
+    }
   }
+  throw lastError;
+}
+
+function describe(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 function isTimeout(err: unknown): boolean {

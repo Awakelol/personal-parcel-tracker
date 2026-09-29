@@ -55,9 +55,9 @@ export function AnalysisNote({ result }: AnalysisNoteProps) {
         <p className="mt-3 text-[15px] leading-snug">
           {result.events.length === 0
             ? result.status === 'pending'
-              ? 'Still loading this parcel’s history. New parcels can take a minute or two, so try again shortly.'
+              ? 'Still loading this parcel’s history. New parcels can take a minute or two; this page checks again on its own.'
               : 'Nothing to summarise yet. The courier hasn’t reported any scans for this parcel.'
-            : 'The summary isn’t available right now. The scan history is up to date; check again in a few minutes for a summary.'}
+            : 'The summary isn’t available right now. The scan history is up to date, and this page will try the summary again in a minute.'}
         </p>
       )}
     </section>

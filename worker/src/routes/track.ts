@@ -32,7 +32,8 @@ trackRoute.post('/', async (c) => {
     fetchedAt: now.toISOString(),
   };
 
-  c.executionCtx.waitUntil(writeCachedResult(c.env.TRACKING_CACHE, key, result, cacheTtlFor(result)));
+  const ttl = cacheTtlFor(result);
+  if (ttl) c.executionCtx.waitUntil(writeCachedResult(c.env.TRACKING_CACHE, key, result, ttl));
 
   const response: TrackResponse = { ...result, cached: false };
   return c.json(response);

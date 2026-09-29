@@ -7,15 +7,13 @@ const CACHE_VERSION = 'v3';
 
 export const CACHE_TTL_SECONDS = 60 * 60;
 
-// Partial results (no summary, or no scans yet) expire sooner.
-export const PARTIAL_CACHE_TTL_SECONDS = 5 * 60;
-// Still loading upstream; KV's minimum TTL.
-export const PENDING_CACHE_TTL_SECONDS = 60;
+// KV's minimum TTL; used when the summary failed so it's retried soon.
+const RETRY_SOON_TTL_SECONDS = 60;
 
-export function cacheTtlFor(result: TrackResult): number {
-  if (result.status === 'pending' && result.events.length === 0) return PENDING_CACHE_TTL_SECONDS;
-  const isComplete = result.analysis !== null && result.events.length > 0;
-  return isComplete ? CACHE_TTL_SECONDS : PARTIAL_CACHE_TTL_SECONDS;
+/** `null` = don't cache (still loading upstream; re-checking it is free). */
+export function cacheTtlFor(result: TrackResult): number | null {
+  if (result.events.length === 0) return result.status === 'pending' ? null : RETRY_SOON_TTL_SECONDS;
+  return result.analysis ? CACHE_TTL_SECONDS : RETRY_SOON_TTL_SECONDS;
 }
 
 // Key on the resolved source so e.g. `jnt-ph` and `100240` share an entry.

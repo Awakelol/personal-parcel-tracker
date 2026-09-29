@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TrackRequest } from '@shared/api';
 import { AnalysisNote } from '../components/AnalysisNote';
 import { RouteMap } from '../components/RouteMap';
@@ -25,8 +25,11 @@ export function TrackPage() {
   const { state, track } = useTrack();
   const { recent, remember, forget } = useRecentSearches();
 
+  const recheckCount = useRef(0);
+
   const handleTrack = useCallback(
     async (request: TrackRequest) => {
+      recheckCount.current = 0;
       window.history.replaceState(null, '', trackUrl(request.trackingNumber, request.courierCode));
       const result = await track(request);
       if (result) {
@@ -40,6 +43,28 @@ export function TrackPage() {
   useEffect(() => {
     if (initialRequest) void handleTrack(initialRequest);
   }, [initialRequest, handleTrack]);
+
+  // New parcels can take a couple of minutes to load upstream, and a failed
+  // summary is cached for a minute; check back quietly instead of making the
+  // user refresh.
+  useEffect(() => {
+    if (state.status !== 'success') return;
+    const { result, request } = state;
+    const stillLoading = result.status === 'pending' && result.events.length === 0;
+    const missingSummary = result.events.length > 0 && !result.analysis;
+    if (!stillLoading && !missingSummary) return;
+    if (recheckCount.current >= (stillLoading ? 8 : 3)) return;
+
+    const timer = setTimeout(
+      async () => {
+        recheckCount.current++;
+        const fresh = await track(request, { silent: true });
+        if (fresh) updateSnapshot(fresh);
+      },
+      stillLoading ? 15_000 : 65_000,
+    );
+    return () => clearTimeout(timer);
+  }, [state, track]);
 
   const route = state.status === 'success' ? (state.result.analysis?.route ?? []) : [];
 
