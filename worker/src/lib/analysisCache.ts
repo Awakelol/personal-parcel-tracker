@@ -3,7 +3,7 @@ import { describeError } from '../errors';
 
 // Summaries are keyed by the exact scans they describe, so Gemini only runs
 // again when a parcel gets new scans. Bump the version when the prompt changes.
-const ANALYSIS_VERSION = 'a3';
+const ANALYSIS_VERSION = 'a5';
 const ANALYSIS_TTL_SECONDS = 30 * 24 * 60 * 60;
 const INPUT_TTL_SECONDS = 10 * 60;
 

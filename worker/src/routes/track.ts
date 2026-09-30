@@ -1,17 +1,20 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
-import type { AiAnalysis, TrackRequest, TrackResponse, TrackResult, TrackingEvent } from '../../../shared/api';
+import type { AiAnalysis, DateRange, TrackRequest, TrackResponse, TrackResult, TrackingSnapshot } from '../../../shared/api';
 import type { AppBindings, Env } from '../env';
 import { describeError } from '../errors';
 import { readAnalysis, scansSignature, stashAnalysisInput, takeAnalysisInput, writeAnalysis } from '../lib/analysisCache';
 import { cacheKey, cacheTtlFor, readCachedResult, writeCachedResult } from '../lib/cache';
 import { localToday, resolveEstimates } from '../lib/estimate';
+import type { Estimates } from '../lib/estimate';
+import { extractJourney, historyEstimate, learnAreas, recordJourney, routeFacts } from '../lib/knowledge';
 import { readJsonBody } from '../lib/request';
 import { parseDestination, parseTrackRequest } from '../lib/validation';
 import { analyzeTracking } from '../services/gemini';
 import { fetchTracking } from '../services/tracking';
 
 type Ctx = Context<AppBindings>;
+type Parcel = Pick<TrackingSnapshot, 'trackingNumber' | 'courierCode' | 'status' | 'events'>;
 
 export const trackRoute = new Hono<AppBindings>();
 
@@ -27,6 +30,7 @@ trackRoute.post('/', async (c) => {
   }
 
   const { snapshot, carrierEstimate, analysisInput } = await fetchTracking(c.env, request);
+  learnFrom(c, snapshot, destination);
   const signature = await scansSignature(snapshot.events, destination);
   let analysis = snapshot.events.length > 0 ? await readAnalysis(c.env.TRACKING_CACHE, key, signature) : null;
   let analysisPending = false;
@@ -36,7 +40,7 @@ trackRoute.post('/', async (c) => {
       analysisPending = true;
       c.executionCtx.waitUntil(stashAnalysisInput(c.env.TRACKING_CACHE, key, analysisInput));
     } else {
-      analysis = await generateAnalysis(c.env, key, signature, analysisInput, snapshot.events.at(-1), destination);
+      analysis = await generateAnalysis(c.env, key, signature, analysisInput, snapshot, destination);
     }
   }
 
@@ -44,7 +48,7 @@ trackRoute.post('/', async (c) => {
     ...snapshot,
     analysis,
     analysisPending,
-    ...resolveEstimates(snapshot.status, carrierEstimate, analysis, localToday(c.env.TIMEZONE)),
+    ...(await estimates(c.env, snapshot, carrierEstimate, analysis, destination)),
     fetchedAt: new Date().toISOString(),
   };
   store(c, key, result);
@@ -68,14 +72,14 @@ trackRoute.post('/analysis', async (c) => {
   let analysis = await readAnalysis(c.env.TRACKING_CACHE, key, signature);
   if (!analysis) {
     const input = (await takeAnalysisInput(c.env.TRACKING_CACHE, key)) ?? (await fetchTracking(c.env, request)).analysisInput;
-    analysis = await generateAnalysis(c.env, key, signature, input, cached.events.at(-1), destination);
+    analysis = await generateAnalysis(c.env, key, signature, input, cached, destination);
   }
 
   const result: TrackResult = {
     ...cached,
     analysis,
     analysisPending: false,
-    ...resolveEstimates(cached.status, cached.courierEstimate ?? null, analysis, localToday(c.env.TIMEZONE)),
+    ...(await estimates(c.env, cached, cached.courierEstimate ?? null, analysis, destination)),
   };
   store(c, key, result);
   return respond(c, result, false);
@@ -83,21 +87,40 @@ trackRoute.post('/analysis', async (c) => {
 
 async function lookUpNow(c: Ctx, request: TrackRequest, key: string, destination?: string): Promise<TrackResult> {
   const { snapshot, carrierEstimate, analysisInput } = await fetchTracking(c.env, request);
+  learnFrom(c, snapshot, destination);
   const signature = await scansSignature(snapshot.events, destination);
   const analysis =
     snapshot.events.length === 0
       ? null
       : ((await readAnalysis(c.env.TRACKING_CACHE, key, signature)) ??
-        (await generateAnalysis(c.env, key, signature, analysisInput, snapshot.events.at(-1), destination)));
+        (await generateAnalysis(c.env, key, signature, analysisInput, snapshot, destination)));
   const result: TrackResult = {
     ...snapshot,
     analysis,
     analysisPending: false,
-    ...resolveEstimates(snapshot.status, carrierEstimate, analysis, localToday(c.env.TIMEZONE)),
+    ...(await estimates(c.env, snapshot, carrierEstimate, analysis, destination)),
     fetchedAt: new Date().toISOString(),
   };
   store(c, key, result);
   return result;
+}
+
+// Every lookup adds its hubs and legs to the shared, per-courier history.
+function learnFrom(c: Ctx, parcel: Parcel, destination: string | undefined): void {
+  const journey = extractJourney(parcel.events, parcel.status);
+  c.executionCtx.waitUntil(recordJourney(c.env.KNOWLEDGE, parcel.courierCode, parcel.trackingNumber, journey, destination));
+}
+
+async function estimates(
+  env: Env,
+  parcel: Parcel,
+  carrierEstimate: DateRange | null,
+  analysis: AiAnalysis | null,
+  destination: string | undefined,
+): Promise<Estimates> {
+  const journey = extractJourney(parcel.events, parcel.status);
+  const history = await historyEstimate(env.KNOWLEDGE, parcel.courierCode, journey, destination, env.TIMEZONE || 'Asia/Manila');
+  return resolveEstimates(parcel.status, carrierEstimate, analysis, localToday(env.TIMEZONE), history);
 }
 
 // A missing summary shouldn't cost the user the timeline.
@@ -106,14 +129,19 @@ async function generateAnalysis(
   key: string,
   signature: string,
   input: unknown,
-  latestScan: TrackingEvent | undefined,
+  parcel: Parcel,
   destination?: string,
 ): Promise<AiAnalysis | null> {
   const started = Date.now();
   try {
-    const analysis = await analyzeTracking(env, input, latestScan, destination);
-    console.log(`Gemini summary written in ${Date.now() - started}ms`);
-    await writeAnalysis(env.TRACKING_CACHE, key, signature, analysis);
+    const journey = extractJourney(parcel.events, parcel.status);
+    const facts = await routeFacts(env.KNOWLEDGE, parcel.courierCode, journey);
+    const analysis = await analyzeTracking(env, input, parcel.events.at(-1), destination, facts);
+    console.log(`Gemini summary written in ${Date.now() - started}ms${facts ? ' (with route history)' : ''}`);
+    await Promise.all([
+      writeAnalysis(env.TRACKING_CACHE, key, signature, analysis),
+      learnAreas(env.KNOWLEDGE, parcel.courierCode, analysis.location),
+    ]);
     return analysis;
   } catch (err) {
     console.error(`Gemini analysis failed after ${Date.now() - started}ms:`, describeError(err));

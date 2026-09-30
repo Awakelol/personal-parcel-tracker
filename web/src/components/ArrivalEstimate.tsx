@@ -10,10 +10,18 @@ interface ArrivalEstimateProps {
   size?: 'lg' | 'sm';
 }
 
-const SOURCE_NOTE: Record<EstimatedDelivery['source'], string> = {
-  carrier: 'Courier’s estimate',
-  gemini: 'Estimated by Gemini from the scans',
-};
+function sourceNote(estimate: EstimatedDelivery, courierName: string | null): string {
+  switch (estimate.source) {
+    case 'carrier':
+      return 'Courier’s estimate';
+    case 'gemini':
+      return 'Estimated by Gemini from the scans';
+    case 'history': {
+      const n = estimate.basedOn ?? 0;
+      return `Based on ${n} past ${courierName ?? ''} parcel${n === 1 ? '' : 's'} on this route`.replace('  ', ' ');
+    }
+  }
+}
 
 export function ArrivalEstimate({
   status,
@@ -57,7 +65,7 @@ export function ArrivalEstimate({
               {formatArrivalHint(estimate)}
             </span>
           </p>
-          {size === 'lg' && <p className="mt-1 text-xs text-ink-muted">{SOURCE_NOTE[estimate.source]}</p>}
+          {size === 'lg' && <p className="mt-1 text-xs text-ink-muted">{sourceNote(estimate, courierName)}</p>}
         </>
       ) : (
         <p className="mt-1 text-sm text-ink-muted">No estimate yet</p>

@@ -1,4 +1,5 @@
 import type { AiAnalysis, DateRange, EstimatedDelivery, ParcelStatus } from '../../../shared/api';
+import type { HistoryEstimate } from './knowledge';
 
 const NO_ESTIMATE_STATUSES: ReadonlySet<ParcelStatus> = new Set([
   'delivered',
@@ -24,12 +25,22 @@ export function resolveEstimates(
   carrierEstimate: DateRange | null,
   analysis: AiAnalysis | null,
   today: string,
+  history: HistoryEstimate | null = null,
 ): Estimates {
   if (NO_ESTIMATE_STATUSES.has(status)) return { estimatedDelivery: null, courierEstimate: null };
   const courier = upcoming(carrierEstimate, today);
   const gemini = upcoming(analysis?.estimatedDelivery, today);
+  const learned = upcoming(history, today);
+  // Real transit times from past parcels beat Gemini's educated guess.
+  const estimatedDelivery = learned && history
+    ? { ...learned, source: 'history' as const, basedOn: history.basedOn }
+    : gemini
+      ? { ...gemini, source: 'gemini' as const }
+      : courier
+        ? { ...courier, source: 'carrier' as const }
+        : null;
   return {
-    estimatedDelivery: gemini ? { ...gemini, source: 'gemini' } : courier ? { ...courier, source: 'carrier' } : null,
+    estimatedDelivery,
     courierEstimate: courier,
   };
 }

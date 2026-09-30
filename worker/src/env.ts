@@ -1,6 +1,7 @@
 export interface Env {
   TRACKING_CACHE: KVNamespace;
   USER_DATA: KVNamespace;
+  KNOWLEDGE: D1Database;
   GEMINI_MODEL: string;
   GEMINI_FALLBACK_MODEL: string;
   /** IANA timezone for "today" in arrival estimates. Defaults to Asia/Manila. */

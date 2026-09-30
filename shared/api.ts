@@ -61,7 +61,10 @@ export interface DateRange {
 }
 
 export interface EstimatedDelivery extends DateRange {
-  source: 'carrier' | 'gemini';
+  /** `history` = worked out from past parcels on the same route. */
+  source: 'carrier' | 'gemini' | 'history';
+  /** For `history`: how many past parcels it's based on. */
+  basedOn?: number;
 }
 
 export type RouteStopRole = 'origin' | 'visited' | 'current' | 'next' | 'destination';

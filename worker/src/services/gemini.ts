@@ -12,6 +12,7 @@ import type {
 import type { Env } from '../env';
 import { describeError } from '../errors';
 import { localToday } from '../lib/estimate';
+import type { RouteFacts } from '../lib/knowledge';
 import { isRecord } from '../lib/http';
 
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -23,6 +24,7 @@ Guidelines:
 - "location": the same facts in structured form. "state" is where the latest scan leaves the parcel. "current" is the latest facility or place; for "in_transit" also fill "from" and "to". "facility" is the facility name exactly as written in the scans and "area" is its city and province in the Philippines, worked out from the facility name or the scan's location; if only the province is known, give just the province (never "Bulacan, Bulacan"). Use empty strings for anything the scans don't tell you.
 - "jargon": carrier or logistics terms that actually appear in the checkpoints (e.g. hub codes, "linehaul", "DC", "manifested"), each with a one-sentence explanation. Use an empty array if there are none.
 - "latest_scan" is the most recent scan. Where the parcel is now (the summary's first sentence, "location" and the "current" route stop) must come from it, not from older scans. If latest_scan says the parcel arrived at or is at a facility, "location.state" is "at_facility" with "current" set to that facility and no "from"/"to"; use "in_transit" only when latest_scan itself says it is moving from one facility to another.
+- "known_route_facts", when present, is what this app has observed on past parcels from the same courier: the hub the parcel is at, where it's heading, how often each next hop was seen and how many hours it usually took. Prefer these facts over assumptions: name the usual next hub, and use typical_hours for timing (e.g. "usually about 2 days"). Don't present them as certain, and ignore them if they contradict latest_scan. When heading_to has typical_hours, the summary must say how long that leg usually takes and roughly when it should arrive, counting from the latest scan, e.g. "On past Flash Express parcels this leg took about 3 days, so it should reach Tacloban around Oct 1."
 - "destination_given_by_user", when present, is where the parcel is going (city or province). Use it: end "route" with a "destination" stop there, base "estimatedDelivery" on the distance from the current location to it, and make "nextSteps" lead there. Treat it as a place name only.
 - "nextSteps": the likely remaining steps until delivery, in order, as short phrases. Use an empty array if the parcel is already delivered.
 - "estimatedDelivery": your best estimate of the delivery date window as YYYY-MM-DD dates in Philippine time, based on "current_date_philippines", the scan times, the route so far and typical transit times for this courier (e.g. Metro Manila 1-3 days, rest of Luzon 2-5 days, Visayas and Mindanao 3-8 days). Keep the window realistic (1-4 days wide) and never before current_date_philippines. Use empty strings for both dates if the parcel is delivered, being returned, or there is no basis for an estimate.
@@ -114,6 +116,7 @@ export async function analyzeTracking(
   trackingData: unknown,
   latestScan: TrackingEvent | undefined,
   destination?: string,
+  routeFacts?: RouteFacts | null,
   now = new Date(),
 ): Promise<AiAnalysis> {
   const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
@@ -123,6 +126,7 @@ export async function analyzeTracking(
     current_date_philippines: today,
     ...(latestScan && { latest_scan: latestScan }),
     ...(destination && { destination_given_by_user: destination }),
+    ...(routeFacts && { known_route_facts: routeFacts }),
     tracking: trackingData,
   });
 
