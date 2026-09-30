@@ -4,7 +4,7 @@ import { ApiError, deleteParcel, listParcels, markParcelSeen, putParcel } from '
 
 export const MAX_NAME_LENGTH = 60;
 
-// Parcels saved before accounts existed get moved to the account.
+// Parcels from the old localStorage-only format are imported to the account once.
 const LEGACY_STORAGE_KEY = 'parcel-tracker:saved';
 
 export interface SavedSnapshot {
@@ -206,7 +206,7 @@ export function markSeen(result: TrackResult): void {
 export function updateSnapshot(result: TrackResult): void {
   const parcel = state.parcels.find((p) => p.trackingNumber === result.trackingNumber);
   if (!parcel) return;
-  // Parcels saved before badges existed start out "seen" at their current scan.
+  // Parcels with no seenLatest yet start out "seen" at their current scan.
   if (!parcel.seenLatest) {
     markSeen(result);
     return;

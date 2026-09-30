@@ -52,7 +52,6 @@ export function formatTime(iso: string): string {
   return date ? timeFormat.format(date) : iso;
 }
 
-const monthDayFormat = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 const shortRangeFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
 
 // new Date('2026-10-01') would parse as UTC midnight; we want local.
@@ -65,7 +64,7 @@ export function formatDateRange(range: DateRange): string {
   const earliest = parseDateOnly(range.earliest);
   const latest = parseDateOnly(range.latest);
   if (!earliest || !latest) return `${range.earliest} – ${range.latest}`;
-  if (earliest.getTime() === latest.getTime()) return monthDayFormat.format(earliest);
+  if (earliest.getTime() === latest.getTime()) return dayFormat.format(earliest);
   return shortRangeFormat.formatRange(earliest, latest);
 }
 

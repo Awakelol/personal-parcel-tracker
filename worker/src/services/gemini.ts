@@ -9,7 +9,9 @@ import type {
   RouteStopRole,
 } from '../../../shared/api';
 import type { Env } from '../env';
+import { describeError } from '../errors';
 import { localToday } from '../lib/estimate';
+import { isRecord } from '../lib/http';
 
 const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -129,15 +131,11 @@ export async function analyzeTracking(env: Env, trackingData: unknown, now = new
     } catch (err) {
       lastError = err;
       const retryable = (err instanceof ApiError && RETRYABLE_STATUSES.has(err.status)) || isTimeout(err);
-      console.warn(`Gemini ${model} failed: ${err instanceof ApiError ? err.status : describe(err)}`);
+      console.warn(`Gemini ${model} failed: ${err instanceof ApiError ? err.status : describeError(err)}`);
       if (!retryable) break;
     }
   }
   throw lastError;
-}
-
-function describe(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 function isTimeout(err: unknown): boolean {
@@ -206,10 +204,6 @@ function sanitizeLocation(value: unknown): ParcelLocation | null {
     location.to = null;
   }
   return location.current || location.from || location.to ? location : null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isJargonTerm(value: unknown): value is JargonTerm {
