@@ -3,12 +3,14 @@ import { describeError } from '../errors';
 
 // Summaries are keyed by the exact scans they describe, so Gemini only runs
 // again when a parcel gets new scans. Bump the version when the prompt changes.
-const ANALYSIS_VERSION = 'a1';
+const ANALYSIS_VERSION = 'a3';
 const ANALYSIS_TTL_SECONDS = 30 * 24 * 60 * 60;
 const INPUT_TTL_SECONDS = 10 * 60;
 
-export async function scansSignature(events: TrackingEvent[]): Promise<string> {
-  const text = events.map((e) => `${e.timestamp}|${e.description}`).join('\n');
+// Includes the destination: a different destination means a different analysis.
+export async function scansSignature(events: TrackingEvent[], destination?: string): Promise<string> {
+  const scans = events.map((e) => `${e.timestamp}|${e.description}`).join('\n');
+  const text = destination ? `${scans}\nto:${destination.toLowerCase()}` : scans;
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(digest).slice(0, 12)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }

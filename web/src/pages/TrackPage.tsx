@@ -10,7 +10,7 @@ import { WaybillLabel } from '../components/WaybillLabel';
 import { useRecentSearches } from '../hooks/useRecentSearches';
 import { useTrack } from '../hooks/useTrack';
 import { trackUrl } from '../lib/router';
-import { isSaved, loadSavedParcels, markSeen, updateSnapshot } from '../lib/savedParcels';
+import { findSaved, loadSavedParcels, markSeen, updateSnapshot } from '../lib/savedParcels';
 
 function requestFromUrl(): TrackRequest | null {
   const params = new URLSearchParams(window.location.search);
@@ -33,7 +33,8 @@ export function TrackPage() {
       window.history.replaceState(null, '', trackUrl(request.trackingNumber, request.courierCode));
       // Saved parcels always get a fresh check instead of the hourly cache.
       await loadSavedParcels();
-      const result = await track({ ...request, fresh: isSaved(request.trackingNumber), deferAnalysis: true });
+      const saved = findSaved(request.trackingNumber);
+      const result = await track({ ...request, fresh: !!saved, deferAnalysis: true, destination: saved?.destination });
       if (result) {
         remember({ ...request, trackingNumber: result.trackingNumber, courierName: result.courierName });
         updateSnapshot(result);
@@ -96,7 +97,11 @@ export function TrackPage() {
 
         {state.status === 'success' && (
           <div key={state.result.fetchedAt + state.result.trackingNumber} className="space-y-6">
-            <SaveParcelBar result={state.result} courierCode={state.request.courierCode} />
+            <SaveParcelBar
+              result={state.result}
+              courierCode={state.request.courierCode}
+              onDestinationChange={() => void handleTrack(state.request)}
+            />
             <div className="grid items-start gap-6 md:grid-cols-[1.35fr_1fr]">
               <AnalysisNote result={state.result} />
               <WaybillLabel result={state.result} />

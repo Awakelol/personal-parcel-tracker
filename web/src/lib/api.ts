@@ -56,8 +56,8 @@ export function trackParcel(req: TrackRequest, signal?: AbortSignal): Promise<Tr
 }
 
 export function fetchAnalysis(req: TrackRequest, signal?: AbortSignal): Promise<TrackResponse> {
-  const { trackingNumber, courierCode } = req;
-  return request('/api/track/analysis', { ...jsonInit('POST', { trackingNumber, courierCode }), signal });
+  const { trackingNumber, courierCode, destination } = req;
+  return request('/api/track/analysis', { ...jsonInit('POST', { trackingNumber, courierCode, destination }), signal });
 }
 
 export function getAccount(): Promise<Account> {

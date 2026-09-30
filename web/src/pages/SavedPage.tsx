@@ -54,9 +54,9 @@ export function SavedPage() {
 
     async function worker() {
       for (let parcel = queue.shift(); parcel; parcel = queue.shift()) {
-        const { trackingNumber, courierCode } = parcel;
+        const { trackingNumber, courierCode, destination } = parcel;
         try {
-          const result = await trackParcel({ trackingNumber, courierCode, fresh: true }, controller.signal);
+          const result = await trackParcel({ trackingNumber, courierCode, destination, fresh: true }, controller.signal);
           updateSnapshot(result);
           setRefresh(({ [trackingNumber]: _done, ...rest }) => rest);
         } catch (err) {
@@ -247,6 +247,7 @@ function SavedParcelCard({ parcel, refresh }: { parcel: SavedParcelView; refresh
         <span>
           {last?.courierName ? `${last.courierName} · ` : ''}
           {parcel.trackingNumber}
+          {parcel.destination && ` → ${parcel.destination}`}
         </span>
       </p>
 

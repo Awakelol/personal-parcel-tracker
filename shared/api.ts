@@ -15,6 +15,8 @@ export interface TrackRequest {
   fresh?: boolean;
   /** Return scans right away and write the summary separately. */
   deferAnalysis?: boolean;
+  /** Where the parcel is going (city or province), to guide the analysis. */
+  destination?: string;
 }
 
 export type ParcelStatus =
@@ -121,6 +123,8 @@ export interface SavedParcel {
   savedAt: string;
   /** Latest scan the user has viewed ("timestamp|description"). */
   seenLatest?: string;
+  /** City or province the parcel is going to, set by the user. */
+  destination?: string;
 }
 
 export interface SavedParcelWithLatest extends SavedParcel {
@@ -131,6 +135,8 @@ export interface SaveParcelRequest {
   name: string;
   courierCode?: string;
   seenLatest?: string;
+  /** Empty string clears it. */
+  destination?: string;
 }
 
 export type ErrorCode =

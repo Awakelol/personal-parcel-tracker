@@ -3,19 +3,31 @@ import type { FormEvent } from 'react';
 import type { TrackResponse } from '@shared/api';
 import { ApiError } from '../lib/api';
 import { navigate } from '../lib/router';
-import { MAX_NAME_LENGTH, removeParcel, renameParcel, saveParcel, useSavedParcels } from '../lib/savedParcels';
+import {
+  MAX_DESTINATION_LENGTH,
+  MAX_NAME_LENGTH,
+  removeParcel,
+  renameParcel,
+  saveParcel,
+  setDestination,
+  useSavedParcels,
+} from '../lib/savedParcels';
 
 interface SaveParcelBarProps {
   result: TrackResponse;
   courierCode?: string;
+  /** Called after the destination changes, so the analysis can be redone. */
+  onDestinationChange?: () => void;
 }
 
-export function SaveParcelBar({ result, courierCode }: SaveParcelBarProps) {
+export function SaveParcelBar({ result, courierCode, onDestinationChange }: SaveParcelBarProps) {
   const { parcels } = useSavedParcels();
   const saved = parcels.find((p) => p.trackingNumber === result.trackingNumber);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [editingDestination, setEditingDestination] = useState(false);
+  const [destination, setDestinationDraft] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -115,6 +127,64 @@ export function SaveParcelBar({ result, courierCode }: SaveParcelBarProps) {
           </button>
         </p>
       </div>
+      {editingDestination ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            setEditingDestination(false);
+            void run(async () => {
+              await setDestination(saved.trackingNumber, destination);
+              onDestinationChange?.();
+            });
+          }}
+          className="mt-3 flex flex-wrap items-end gap-3"
+        >
+          <label className="block min-w-0 flex-1 basis-64">
+            <span className="text-xs font-bold uppercase tracking-[0.14em] text-on-page-muted">
+              Destination · city or province
+            </span>
+            <input
+              autoFocus
+              value={destination}
+              onChange={(e) => setDestinationDraft(e.target.value)}
+              maxLength={MAX_DESTINATION_LENGTH}
+              placeholder="e.g. Tacloban City, Leyte"
+              onKeyDown={(e) => e.key === 'Escape' && setEditingDestination(false)}
+              className="mt-1.5 block h-11 w-full rounded-sm border-2 border-ink bg-paper px-3 text-base text-ink"
+            />
+          </label>
+          <button
+            type="submit"
+            className="font-condensed h-11 rounded-sm border-2 border-ink bg-ink px-5 font-extrabold uppercase tracking-wider text-paper dark:border-on-page dark:bg-on-page dark:text-kraft"
+          >
+            Save
+          </button>
+          <button type="button" onClick={() => setEditingDestination(false)} className="h-11 px-2 text-sm font-semibold underline">
+            Cancel
+          </button>
+        </form>
+      ) : (
+        <p className="mt-2 text-sm">
+          {saved.destination ? (
+            <>
+              <span className="text-on-page-muted">Destination:</span> <strong>{saved.destination}</strong> ·{' '}
+            </>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => {
+              setDestinationDraft(saved.destination ?? '');
+              setEditingDestination(true);
+            }}
+            className="font-semibold underline"
+          >
+            {saved.destination ? 'Change' : '+ Add destination'}
+          </button>
+          {!saved.destination && (
+            <span className="text-on-page-muted"> — helps Gemini work out the route and arrival date</span>
+          )}
+        </p>
+      )}
       {errorMessage}
     </div>
   );

@@ -40,3 +40,12 @@ export function parseTrackRequest(body: unknown): TrackRequest {
 
   return { trackingNumber: normalizedNumber, courierCode: normalizedCourier };
 }
+
+const MAX_DESTINATION_LENGTH = 80;
+
+/** A city or province, e.g. "Tacloban City, Leyte". Empty means none. */
+export function parseDestination(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const cleaned = value.replace(/\s+/g, ' ').trim().slice(0, MAX_DESTINATION_LENGTH);
+  return cleaned || undefined;
+}

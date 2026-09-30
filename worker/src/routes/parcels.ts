@@ -4,7 +4,7 @@ import type { AppBindings } from '../env';
 import { AppError } from '../errors';
 import { cacheKey, readCachedResult } from '../lib/cache';
 import { readJsonBody } from '../lib/request';
-import { parseTrackRequest } from '../lib/validation';
+import { parseDestination, parseTrackRequest } from '../lib/validation';
 
 const MAX_PARCELS = 100;
 const MAX_NAME_LENGTH = 60;
@@ -58,12 +58,15 @@ parcelsRoute.put('/:trackingNumber', async (c) => {
   const existing = parcels.find((p) => p.trackingNumber === trackingNumber);
 
   const seenLatest = parseScanKey(fields.seenLatest) ?? existing?.seenLatest;
+  // Omitted keeps the current destination; an empty string clears it.
+  const destination = fields.destination === undefined ? existing?.destination : parseDestination(fields.destination);
   const parcel: SavedParcel = {
     trackingNumber,
     ...(courierCode && { courierCode }),
     name,
     savedAt: existing?.savedAt ?? new Date().toISOString(),
     ...(seenLatest && { seenLatest }),
+    ...(destination && { destination }),
   };
 
   if (!existing && parcels.length >= MAX_PARCELS) {

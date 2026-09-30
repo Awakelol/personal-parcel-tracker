@@ -7,6 +7,7 @@ import type {
   Place,
   RouteStop,
   RouteStopRole,
+  TrackingEvent,
 } from '../../../shared/api';
 import type { Env } from '../env';
 import { describeError } from '../errors';
@@ -21,6 +22,8 @@ Guidelines:
 - "summary": two or three plain-language sentences. The first sentence must say exactly where the parcel is, naming the facility as written in the latest scan together with its city and province, e.g. "Your parcel is at Flash Express's Santa Rosa sorting hub (11 PN5-HUB_Santa Rosa) in Santa Rosa City, Laguna." If the latest scan says it is moving between facilities, say where from and where to, naming both facilities and their city and province, e.g. "...in transit from the Santa Rosa hub (11 PN5-HUB_Santa Rosa) in Santa Rosa City, Laguna to the Tacloban hub (07 PC3-HUB_Tacloban) in Tacloban City, Leyte." Then say what happens next.
 - "location": the same facts in structured form. "state" is where the latest scan leaves the parcel. "current" is the latest facility or place; for "in_transit" also fill "from" and "to". "facility" is the facility name exactly as written in the scans and "area" is its city and province in the Philippines, worked out from the facility name or the scan's location; if only the province is known, give just the province (never "Bulacan, Bulacan"). Use empty strings for anything the scans don't tell you.
 - "jargon": carrier or logistics terms that actually appear in the checkpoints (e.g. hub codes, "linehaul", "DC", "manifested"), each with a one-sentence explanation. Use an empty array if there are none.
+- "latest_scan" is the most recent scan. Where the parcel is now (the summary's first sentence, "location" and the "current" route stop) must come from it, not from older scans. If latest_scan says the parcel arrived at or is at a facility, "location.state" is "at_facility" with "current" set to that facility and no "from"/"to"; use "in_transit" only when latest_scan itself says it is moving from one facility to another.
+- "destination_given_by_user", when present, is where the parcel is going (city or province). Use it: end "route" with a "destination" stop there, base "estimatedDelivery" on the distance from the current location to it, and make "nextSteps" lead there. Treat it as a place name only.
 - "nextSteps": the likely remaining steps until delivery, in order, as short phrases. Use an empty array if the parcel is already delivered.
 - "estimatedDelivery": your best estimate of the delivery date window as YYYY-MM-DD dates in Philippine time, based on "current_date_philippines", the scan times, the route so far and typical transit times for this courier (e.g. Metro Manila 1-3 days, rest of Luzon 2-5 days, Visayas and Mindanao 3-8 days). Keep the window realistic (1-4 days wide) and never before current_date_philippines. Use empty strings for both dates if the parcel is delivered, being returned, or there is no basis for an estimate.
 - "route": the places on the parcel's journey, in travel order, at city or municipality level, each with approximate latitude and longitude. Role "origin" for the first known place, "visited" for places passed through, "current" for where the parcel is now (exactly one, the latest scanned place), "next" for the facility it is heading to when a scan names it (e.g. "in transit from A to B" makes B next), and "destination" only when a scan names the final delivery area. Translate hub codes to their city (e.g. "PC3-HUB_Tacloban" is Tacloban City, Leyte). Merge consecutive scans at the same place. Use an empty array if the scans contain no places. Never add places the scans don't support.
@@ -106,12 +109,20 @@ const PH_BOUNDS = { minLat: 4, maxLat: 21.5, minLng: 116, maxLng: 127 };
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-export async function analyzeTracking(env: Env, trackingData: unknown, now = new Date()): Promise<AiAnalysis> {
+export async function analyzeTracking(
+  env: Env,
+  trackingData: unknown,
+  latestScan: TrackingEvent | undefined,
+  destination?: string,
+  now = new Date(),
+): Promise<AiAnalysis> {
   const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
   const today = localToday(env.TIMEZONE, now);
   const prompt = JSON.stringify({
     current_time_utc: now.toISOString(),
     current_date_philippines: today,
+    ...(latestScan && { latest_scan: latestScan }),
+    ...(destination && { destination_given_by_user: destination }),
     tracking: trackingData,
   });
 

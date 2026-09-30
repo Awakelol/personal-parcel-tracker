@@ -3,6 +3,7 @@ import type { DateRange, EstimatedDelivery, ParcelStatus, SavedParcel, TrackResu
 import { ApiError, deleteParcel, listParcels, markParcelSeen, putParcel } from './api';
 
 export const MAX_NAME_LENGTH = 60;
+export const MAX_DESTINATION_LENGTH = 80;
 
 // Parcels from the old localStorage-only format are imported to the account once.
 const LEGACY_STORAGE_KEY = 'parcel-tracker:saved';
@@ -176,6 +177,26 @@ export function renameParcel(trackingNumber: string, name: string): Promise<void
   return optimistic(
     state.parcels.map((p) => (p.trackingNumber === trackingNumber ? { ...p, name: trimmed } : p)),
     () => putParcel(trackingNumber, { name: trimmed, courierCode: parcel.courierCode }),
+  );
+}
+
+export function findSaved(trackingNumber: string): SavedParcelView | undefined {
+  const normalized = trackingNumber.replace(/[\s-]/g, '').toUpperCase();
+  return state.parcels.find((p) => p.trackingNumber === normalized);
+}
+
+/** City or province the parcel is heading to; empty clears it. */
+export function setDestination(trackingNumber: string, destination: string): Promise<void> {
+  const parcel = state.parcels.find((p) => p.trackingNumber === trackingNumber);
+  if (!parcel) return Promise.resolve();
+  const cleaned = destination.replace(/\s+/g, ' ').trim().slice(0, MAX_DESTINATION_LENGTH);
+  return optimistic(
+    state.parcels.map((p) => {
+      if (p.trackingNumber !== trackingNumber) return p;
+      const { destination: _old, ...rest } = p;
+      return cleaned ? { ...rest, destination: cleaned } : rest;
+    }),
+    () => putParcel(trackingNumber, { name: parcel.name, courierCode: parcel.courierCode, destination: cleaned }),
   );
 }
 
