@@ -5,7 +5,7 @@ import type { AppBindings, Env } from '../env';
 import { describeError } from '../errors';
 import { readAnalysis, scansSignature, stashAnalysisInput, takeAnalysisInput, writeAnalysis } from '../lib/analysisCache';
 import { cacheKey, cacheTtlFor, readCachedResult, writeCachedResult } from '../lib/cache';
-import { philippineToday, resolveEstimates } from '../lib/estimate';
+import { localToday, resolveEstimates } from '../lib/estimate';
 import { readJsonBody } from '../lib/request';
 import { parseTrackRequest } from '../lib/validation';
 import { analyzeTracking } from '../services/gemini';
@@ -43,7 +43,7 @@ trackRoute.post('/', async (c) => {
     ...snapshot,
     analysis,
     analysisPending,
-    ...resolveEstimates(snapshot.status, carrierEstimate, analysis, philippineToday()),
+    ...resolveEstimates(snapshot.status, carrierEstimate, analysis, localToday(c.env.TIMEZONE)),
     fetchedAt: new Date().toISOString(),
   };
   store(c, key, result);
@@ -70,7 +70,7 @@ trackRoute.post('/analysis', async (c) => {
     ...cached,
     analysis,
     analysisPending: false,
-    ...resolveEstimates(cached.status, cached.courierEstimate ?? null, analysis, philippineToday()),
+    ...resolveEstimates(cached.status, cached.courierEstimate ?? null, analysis, localToday(c.env.TIMEZONE)),
   };
   store(c, key, result);
   return respond(c, result, false);
@@ -88,7 +88,7 @@ async function lookUpNow(c: Ctx, request: TrackRequest, key: string): Promise<Tr
     ...snapshot,
     analysis,
     analysisPending: false,
-    ...resolveEstimates(snapshot.status, carrierEstimate, analysis, philippineToday()),
+    ...resolveEstimates(snapshot.status, carrierEstimate, analysis, localToday(c.env.TIMEZONE)),
     fetchedAt: new Date().toISOString(),
   };
   store(c, key, result);

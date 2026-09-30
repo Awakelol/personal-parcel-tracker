@@ -34,6 +34,15 @@ export function resolveEstimates(
   };
 }
 
-export function philippineToday(now = new Date()): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(now);
+const DEFAULT_TIMEZONE = 'Asia/Manila';
+
+/** Today's date (YYYY-MM-DD) in `timeZone`; a bad zone falls back to the default. */
+export function localToday(timeZone: string | undefined, now = new Date()): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: timeZone || DEFAULT_TIMEZONE }).format(now);
+  } catch (err) {
+    if (!(err instanceof RangeError)) throw err;
+    console.warn(`Invalid TIMEZONE "${timeZone}", using ${DEFAULT_TIMEZONE}.`);
+    return new Intl.DateTimeFormat('en-CA', { timeZone: DEFAULT_TIMEZONE }).format(now);
+  }
 }

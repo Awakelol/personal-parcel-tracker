@@ -3,11 +3,13 @@ export interface Env {
   USER_DATA: KVNamespace;
   GEMINI_MODEL: string;
   GEMINI_FALLBACK_MODEL: string;
+  /** IANA timezone for "today" in arrival estimates. Defaults to Asia/Manila. */
+  TIMEZONE?: string;
+
+  // Secrets
   /** e.g. https://yourteam.cloudflareaccess.com */
   ACCESS_TEAM_DOMAIN: string;
   ACCESS_AUD: string;
-
-  // Secrets
   GEMINI_API_KEY: string;
   SEVENTEENTRACK_API_KEY: string;
   /** Local dev only: skip Access and act as this user. */

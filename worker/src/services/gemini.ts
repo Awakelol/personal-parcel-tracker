@@ -9,7 +9,7 @@ import type {
   RouteStopRole,
 } from '../../../shared/api';
 import type { Env } from '../env';
-import { philippineToday } from '../lib/estimate';
+import { localToday } from '../lib/estimate';
 
 const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -106,9 +106,10 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function analyzeTracking(env: Env, trackingData: unknown, now = new Date()): Promise<AiAnalysis> {
   const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+  const today = localToday(env.TIMEZONE, now);
   const prompt = JSON.stringify({
     current_time_utc: now.toISOString(),
-    current_date_philippines: philippineToday(now),
+    current_date_philippines: today,
     tracking: trackingData,
   });
 
@@ -124,7 +125,7 @@ export async function analyzeTracking(env: Env, trackingData: unknown, now = new
     if (i === 1) await new Promise((resolve) => setTimeout(resolve, 1_000));
 
     try {
-      return await analyzeWithModel(ai, model, prompt, now);
+      return await analyzeWithModel(ai, model, prompt, today);
     } catch (err) {
       lastError = err;
       const retryable = (err instanceof ApiError && RETRYABLE_STATUSES.has(err.status)) || isTimeout(err);
@@ -143,7 +144,7 @@ function isTimeout(err: unknown): boolean {
   return err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError' || /aborted/i.test(err.message));
 }
 
-async function analyzeWithModel(ai: GoogleGenAI, model: string, prompt: string, now: Date): Promise<AiAnalysis> {
+async function analyzeWithModel(ai: GoogleGenAI, model: string, prompt: string, today: string): Promise<AiAnalysis> {
   const response = await ai.models.generateContent({
     model,
     contents: prompt,
@@ -173,7 +174,7 @@ async function analyzeWithModel(ai: GoogleGenAI, model: string, prompt: string, 
     summary: parsed.summary.trim(),
     jargon: parsed.jargon,
     nextSteps: parsed.nextSteps,
-    estimatedDelivery: sanitizeDateRange(parsed.estimatedDelivery, philippineToday(now)),
+    estimatedDelivery: sanitizeDateRange(parsed.estimatedDelivery, today),
     route: sanitizeRoute(parsed.route),
     location: sanitizeLocation(parsed.location),
   };

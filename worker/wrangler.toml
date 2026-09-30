@@ -25,8 +25,8 @@ binding = "USER_DATA"
 [vars]
 GEMINI_MODEL = "gemini-3.5-flash-lite"
 GEMINI_FALLBACK_MODEL = "gemini-3.1-flash-lite"
-# From the Cloudflare Access application in front of this Worker.
-ACCESS_TEAM_DOMAIN = "https://yourteam.cloudflareaccess.com"
-ACCESS_AUD = "your-access-aud-tag"
+# IANA timezone used for "today" when estimating arrival dates.
+TIMEZONE = "Asia/Manila"
 
-# Secrets: GEMINI_API_KEY, SEVENTEENTRACK_API_KEY (wrangler secret put / .dev.vars)
+# Secrets (wrangler secret put, or worker/.env locally):
+# GEMINI_API_KEY, SEVENTEENTRACK_API_KEY, ACCESS_TEAM_DOMAIN, ACCESS_AUD
