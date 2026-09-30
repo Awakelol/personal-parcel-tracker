@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ArrivalEstimate } from '../components/ArrivalEstimate';
+import { DestinationInput, destinationError } from '../components/DestinationInput';
 import { ApiError, trackParcel } from '../lib/api';
 import { ALERT_STATUSES, STATUS_LABELS, formatRelative } from '../lib/format';
 import { navigate, trackUrl } from '../lib/router';
 import {
-  MAX_DESTINATION_LENGTH,
   MAX_NAME_LENGTH,
   reloadSavedParcels,
   removeParcel,
@@ -212,6 +212,8 @@ function SavedParcelCard({ parcel, refresh, onRefresh }: SavedParcelCardProps) {
 
   function handleDestination(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const problem = destinationError(destination);
+    if (problem) return setActionError(problem);
     setEditingDestination(false);
     void run(async () => {
       await setDestination(parcel.trackingNumber, destination);
@@ -295,15 +297,11 @@ function SavedParcelCard({ parcel, refresh, onRefresh }: SavedParcelCardProps) {
 
       {editingDestination ? (
         <form onSubmit={handleDestination} className="flex gap-2 px-4 pt-2">
-          <input
+          <DestinationInput
             value={destination}
-            onChange={(e) => setDestinationDraft(e.target.value)}
-            maxLength={MAX_DESTINATION_LENGTH}
-            autoFocus
-            aria-label="Destination (city or province)"
-            placeholder="City or province, e.g. Ormoc City, Leyte"
-            onKeyDown={(e) => e.key === 'Escape' && setEditingDestination(false)}
-            className="min-w-0 flex-1 rounded-sm border-2 border-ink px-2 py-1 text-sm"
+            onChange={(v) => (setDestinationDraft(v), setActionError(null))}
+            onCancel={() => setEditingDestination(false)}
+            className="w-full rounded-sm border-2 border-ink px-2 py-1 text-sm"
           />
           <button type="submit" className="text-sm font-semibold underline">
             Save

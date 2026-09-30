@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { TrackResponse } from '@shared/api';
 import { ApiError } from '../lib/api';
+import { DestinationInput, destinationError } from './DestinationInput';
 import { navigate } from '../lib/router';
 import {
-  MAX_DESTINATION_LENGTH,
   MAX_NAME_LENGTH,
   removeParcel,
   renameParcel,
@@ -131,6 +131,8 @@ export function SaveParcelBar({ result, courierCode, onDestinationChange }: Save
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            const problem = destinationError(destination);
+            if (problem) return setError(problem);
             setEditingDestination(false);
             void run(async () => {
               await setDestination(saved.trackingNumber, destination);
@@ -139,20 +141,19 @@ export function SaveParcelBar({ result, courierCode, onDestinationChange }: Save
           }}
           className="mt-3 flex flex-wrap items-end gap-3"
         >
-          <label className="block min-w-0 flex-1 basis-64">
+          <div className="block min-w-0 flex-1 basis-64">
             <span className="text-xs font-bold uppercase tracking-[0.14em] text-on-page-muted">
               Destination · city or province
             </span>
-            <input
-              autoFocus
-              value={destination}
-              onChange={(e) => setDestinationDraft(e.target.value)}
-              maxLength={MAX_DESTINATION_LENGTH}
-              placeholder="e.g. Tacloban City, Leyte"
-              onKeyDown={(e) => e.key === 'Escape' && setEditingDestination(false)}
-              className="mt-1.5 block h-11 w-full rounded-sm border-2 border-ink bg-paper px-3 text-base text-ink"
-            />
-          </label>
+            <div className="mt-1.5 flex">
+              <DestinationInput
+                value={destination}
+                onChange={(v) => (setDestinationDraft(v), setError(null))}
+                onCancel={() => setEditingDestination(false)}
+                className="block h-11 w-full rounded-sm border-2 border-ink bg-paper px-3 text-base text-ink"
+              />
+            </div>
+          </div>
           <button
             type="submit"
             className="font-condensed h-11 rounded-sm border-2 border-ink bg-ink px-5 font-extrabold uppercase tracking-wider text-paper dark:border-on-page dark:bg-on-page dark:text-kraft"
