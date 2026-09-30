@@ -206,14 +206,21 @@ export function markSeen(result: TrackResult): void {
 export function updateSnapshot(result: TrackResult): void {
   const parcel = state.parcels.find((p) => p.trackingNumber === result.trackingNumber);
   if (!parcel) return;
-  // Parcels with no seenLatest yet start out "seen" at their current scan.
-  if (!parcel.seenLatest) {
-    markSeen(result);
-    return;
+  // No seenLatest yet: count as seen whatever was on screen before this
+  // re-check, so scans it just found still show up as new.
+  let seenLatest = parcel.seenLatest;
+  if (!seenLatest) {
+    seenLatest = scanKey(parcel.last?.latestEvent) ?? scanKey(result.events.at(-1));
+    if (seenLatest) {
+      const key = seenLatest;
+      void queued(() => markParcelSeen(result.trackingNumber, key)).catch(() => undefined);
+    }
   }
   setParcels(
     state.parcels.map((p) =>
-      p.trackingNumber === result.trackingNumber ? { ...p, last: snapshotOf(result, p.seenLatest) } : p,
+      p.trackingNumber === result.trackingNumber
+        ? { ...p, ...(seenLatest && { seenLatest }), last: snapshotOf(result, seenLatest) }
+        : p,
     ),
   );
 }
