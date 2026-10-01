@@ -67,6 +67,8 @@ parcelsRoute.put('/:trackingNumber', async (c) => {
     savedAt: existing?.savedAt ?? new Date().toISOString(),
     ...(seenLatest && { seenLatest }),
     ...(destination && { destination }),
+    // Omitted keeps the current state.
+    ...((typeof fields.archived === 'boolean' ? fields.archived : existing?.archived) && { archived: true }),
   };
 
   if (!existing && parcels.length >= MAX_PARCELS) {

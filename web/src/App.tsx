@@ -65,7 +65,7 @@ export function App() {
               Track
             </NavLink>
             <NavLink href="/saved" active={page === 'saved'}>
-              Saved <span className="font-mono font-normal">({parcels.length})</span>
+              Saved <span className="font-mono font-normal">({parcels.filter((p) => !p.archived).length})</span>
               {unread > 0 && (
                 <span className="ml-1.5 rounded-sm bg-sticker px-1.5 py-0.5 align-middle text-[10px] font-bold tracking-wider text-ink">
                   {unread} new

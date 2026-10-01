@@ -128,6 +128,8 @@ export interface SavedParcel {
   seenLatest?: string;
   /** City or province the parcel is going to, set by the user. */
   destination?: string;
+  /** Hidden from the main list and no longer re-checked. */
+  archived?: boolean;
 }
 
 export interface SavedParcelWithLatest extends SavedParcel {
@@ -140,6 +142,7 @@ export interface SaveParcelRequest {
   seenLatest?: string;
   /** Empty string clears it. */
   destination?: string;
+  archived?: boolean;
 }
 
 export type ErrorCode =

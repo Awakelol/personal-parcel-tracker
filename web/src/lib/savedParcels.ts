@@ -140,7 +140,7 @@ export function useSavedParcels(): SavedState {
 }
 
 export function unreadCount(parcels: SavedParcelView[]): number {
-  return parcels.filter((p) => (p.last?.newScans ?? 0) > 0).length;
+  return parcels.filter((p) => !p.archived && (p.last?.newScans ?? 0) > 0).length;
 }
 
 async function optimistic(next: SavedParcelView[], commit: () => Promise<unknown>): Promise<void> {
@@ -197,6 +197,20 @@ export function setDestination(trackingNumber: string, destination: string): Pro
       return cleaned ? { ...rest, destination: cleaned } : rest;
     }),
     () => putParcel(trackingNumber, { name: parcel.name, courierCode: parcel.courierCode, destination: cleaned }),
+  );
+}
+
+/** Archived parcels are hidden from the main list and not re-checked. */
+export function setArchived(trackingNumber: string, archived: boolean): Promise<void> {
+  const parcel = state.parcels.find((p) => p.trackingNumber === trackingNumber);
+  if (!parcel) return Promise.resolve();
+  return optimistic(
+    state.parcels.map((p) => {
+      if (p.trackingNumber !== trackingNumber) return p;
+      const { archived: _old, ...rest } = p;
+      return archived ? { ...rest, archived: true } : rest;
+    }),
+    () => putParcel(trackingNumber, { name: parcel.name, courierCode: parcel.courierCode, archived }),
   );
 }
 

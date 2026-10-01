@@ -10,6 +10,7 @@ import {
   reloadSavedParcels,
   removeParcel,
   renameParcel,
+  setArchived,
   setDestination,
   updateSnapshot,
   useSavedParcels,
@@ -25,25 +26,25 @@ function errorMessage(err: unknown): string {
   return err instanceof ApiError ? err.message : 'Something went wrong. Try again.';
 }
 
-// Parcels with unread updates go first within each group.
-function sortParcels(parcels: SavedParcelView[]) {
+// A-Z by name; "Parcel 2" before "Parcel 10".
+const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+
+function groupParcels(parcels: SavedParcelView[]) {
+  const sorted = [...parcels].sort((a, b) => byName.compare(a.name, b.name));
+  const active = sorted.filter((p) => !p.archived);
   const isDelivered = (p: SavedParcelView) => p.last?.status === 'delivered';
-  const unread = (p: SavedParcelView) => ((p.last?.newScans ?? 0) > 0 ? 0 : 1);
-  const eta = (p: SavedParcelView) => p.last?.estimatedDelivery?.earliest ?? '9999';
-  const lastScan = (p: SavedParcelView) => p.last?.latestEvent?.timestamp ?? '';
   return {
-    onTheWay: parcels
-      .filter((p) => !isDelivered(p))
-      .sort((a, b) => unread(a) - unread(b) || eta(a).localeCompare(eta(b))),
-    delivered: parcels
-      .filter(isDelivered)
-      .sort((a, b) => unread(a) - unread(b) || lastScan(b).localeCompare(lastScan(a))),
+    active,
+    onTheWay: active.filter((p) => !isDelivered(p)),
+    delivered: active.filter(isDelivered),
+    archived: sorted.filter((p) => p.archived),
   };
 }
 
 export function SavedPage() {
   const { status, parcels, error } = useSavedParcels();
   const [refresh, setRefresh] = useState<RefreshState>({});
+  const [showArchived, setShowArchived] = useState(false);
   const inFlight = useRef<AbortController | null>(null);
 
   const refreshParcels = useCallback(async (items: SavedParcelView[]) => {
@@ -83,11 +84,13 @@ export function SavedPage() {
     }
   }, []);
 
-  // Every visit: pick up saves from other devices, then re-check each parcel.
+  // Every visit: pick up saves from other devices, then re-check each parcel
+  // that isn't archived.
   useEffect(() => {
     let cancelled = false;
     void reloadSavedParcels().then((list) => {
-      if (!cancelled && list.length > 0) void refreshParcels(list);
+      const active = list.filter((p) => !p.archived);
+      if (!cancelled && active.length > 0) void refreshParcels(active);
     });
     return () => {
       cancelled = true;
@@ -95,25 +98,39 @@ export function SavedPage() {
     };
   }, [refreshParcels]);
 
-  const { onTheWay, delivered } = sortParcels(parcels);
+  const { active, onTheWay, delivered, archived } = groupParcels(parcels);
   const isRefreshing = Object.values(refresh).some((r) => r.status === 'loading');
 
   return (
     <div>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <h2 className="font-condensed text-3xl leading-none font-black uppercase tracking-tight">
-          Saved parcels <span className="font-mono text-lg font-normal text-on-page-muted">({parcels.length})</span>
+          Saved parcels <span className="font-mono text-lg font-normal text-on-page-muted">({active.length})</span>
         </h2>
-        {parcels.length > 0 && (
-          <button
-            type="button"
-            onClick={() => void refreshParcels(parcels)}
-            disabled={isRefreshing}
-            className="rounded-sm border-2 border-on-page px-3 py-1.5 text-sm font-semibold hover:bg-on-page hover:text-kraft disabled:cursor-progress disabled:opacity-60"
-          >
-            {isRefreshing ? 'Updating…' : 'Update all'}
-          </button>
-        )}
+        <div className="flex gap-2">
+          {archived.length > 0 && (
+            <button
+              type="button"
+              aria-pressed={showArchived}
+              onClick={() => setShowArchived((v) => !v)}
+              className={`rounded-sm border-2 border-on-page px-3 py-1.5 text-sm font-semibold hover:bg-on-page hover:text-kraft ${
+                showArchived ? 'bg-on-page text-kraft' : ''
+              }`}
+            >
+              Archived ({archived.length})
+            </button>
+          )}
+          {active.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void refreshParcels(active)}
+              disabled={isRefreshing}
+              className="rounded-sm border-2 border-on-page px-3 py-1.5 text-sm font-semibold hover:bg-on-page hover:text-kraft disabled:cursor-progress disabled:opacity-60"
+            >
+              {isRefreshing ? 'Updating…' : 'Update all'}
+            </button>
+          )}
+        </div>
       </header>
 
       {status === 'loading' && <p className="mt-8 text-on-page-muted">Loading your parcels…</p>}
@@ -150,6 +167,9 @@ export function SavedPage() {
       )}
       {delivered.length > 0 && (
         <ParcelGroup title="Delivered" parcels={delivered} refresh={refresh} onRefresh={refreshOne} />
+      )}
+      {showArchived && archived.length > 0 && (
+        <ParcelGroup title="Archived · not re-checked" parcels={archived} refresh={refresh} onRefresh={refreshOne} />
       )}
     </div>
   );
@@ -219,6 +239,15 @@ function SavedParcelCard({ parcel, refresh, onRefresh }: SavedParcelCardProps) {
       await setDestination(parcel.trackingNumber, destination);
       const cleaned = destination.trim();
       await onRefresh({ ...parcel, destination: cleaned || undefined });
+    });
+  }
+
+  function toggleArchived() {
+    const archive = !parcel.archived;
+    void run(async () => {
+      await setArchived(parcel.trackingNumber, archive);
+      // Back in the active list: bring it up to date.
+      if (!archive) await onRefresh({ ...parcel, archived: false });
     });
   }
 
@@ -359,6 +388,11 @@ function SavedParcelCard({ parcel, refresh, onRefresh }: SavedParcelCardProps) {
           <button type="button" onClick={() => (setName(parcel.name), setRenaming(true))} className="underline">
             Rename
           </button>
+          {(parcel.archived || last?.status === 'delivered') && (
+            <button type="button" onClick={toggleArchived} className="underline">
+              {parcel.archived ? 'Unarchive' : 'Archive'}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => (confirmRemove ? void run(() => removeParcel(parcel.trackingNumber)) : setConfirmRemove(true))}
