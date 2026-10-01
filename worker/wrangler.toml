@@ -22,6 +22,10 @@ binding = "TRACKING_CACHE"
 [[kv_namespaces]]
 binding = "USER_DATA"
 
+# Headless browser for reading Flash Express's tracking page live.
+[browser]
+binding = "BROWSER"
+
 # Learned hubs, routes and transit times (shared, per courier).
 [[d1_databases]]
 binding = "KNOWLEDGE"

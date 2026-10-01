@@ -1,7 +1,8 @@
 import type { DateRange, TrackRequest, TrackingSnapshot } from '../../../shared/api';
 import type { Env } from '../env';
 import { AppError } from '../errors';
-import { SPX_17TRACK_CARRIER_ID, resolveRoute } from '../lib/carriers';
+import { FLASH_17TRACK_CARRIER_ID, SPX_17TRACK_CARRIER_ID, resolveRoute } from '../lib/carriers';
+import { fetchFlashLive, normalizeFlash } from './flash';
 import { fetch17TrackRaw, normalize17Track } from './seventeentrack';
 import { fetchSpxRaw, normalizeSpx } from './spx';
 
@@ -16,6 +17,11 @@ export async function fetchTracking(env: Env, request: TrackRequest): Promise<Tr
   const route = resolveRoute(request);
 
   if (route.provider === '17track') {
+    // 17TRACK's copy of Flash can lag hours behind, so read Flash's own page first.
+    if (route.carrierId === FLASH_17TRACK_CARRIER_ID) {
+      const live = await fetchFlashLive(env.BROWSER, env.TRACKING_CACHE, request.trackingNumber);
+      if (live && live.routes.length > 0) return normalizeFlash(live);
+    }
     return trackVia17Track(env, request.trackingNumber, route.carrierId);
   }
 

@@ -11,6 +11,7 @@ const SEVENTEENTRACK_CARRIER_IDS: Record<CourierCode, number> = {
 };
 
 export const SPX_17TRACK_CARRIER_ID = SEVENTEENTRACK_CARRIER_IDS['spx-ph'];
+export const FLASH_17TRACK_CARRIER_ID = SEVENTEENTRACK_CARRIER_IDS['flash-ph'];
 
 /** SPX Philippines numbers look like SPXPH0xxxxxxxxxxx or PH123456789012A. */
 const SPX_TRACKING_NUMBER_PATTERN = /^(SPXPH\d{8,}|PH\d{12}[A-Z])$/;

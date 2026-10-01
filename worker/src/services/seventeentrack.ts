@@ -1,6 +1,7 @@
 import type { DateRange, ParcelStatus, TrackingEvent } from '../../../shared/api';
 import { courierCodeFor17TrackId, courierName } from '../lib/carriers';
 import { fetchJson, isRecord, upstreamError } from '../lib/http';
+import { splitBracketedLocation } from '../lib/scans';
 import { AppError } from '../errors';
 import type { TrackingLookup } from './tracking';
 
@@ -283,19 +284,11 @@ function eventLocation(event: StEvent): string | null {
   return [city, state, country].filter(Boolean).join(', ') || null;
 }
 
-// Flash PH appends the location as ",【Province】,【City】".
-const BRACKETED_LOCATION = /,?\s*【([^】]+)】/g;
-
 function toTrackingEvent(event: StEvent): TrackingEvent {
-  const rawDescription = event.description ?? '';
-  const bracketed = [...rawDescription.matchAll(BRACKETED_LOCATION)].map((m) => m[1]!.trim());
-  const description = bracketed.length
-    ? rawDescription.replace(BRACKETED_LOCATION, '').trim()
-    : rawDescription;
-
+  const { description, location } = splitBracketedLocation(event.description ?? '');
   return {
     timestamp: event.time_iso ?? event.time_utc ?? '',
     description,
-    location: eventLocation(event) ?? (bracketed.length ? bracketed.reverse().join(', ') : null),
+    location: eventLocation(event) ?? location,
   };
 }
